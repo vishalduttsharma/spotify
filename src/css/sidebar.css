@@ -1,0 +1,73 @@
+#sidebar
+{
+    background-color: black;
+    width: 300px;
+    border-radius: 1rem;
+}
+.navpart
+{
+    background-color:#121212;
+    height:5rem;
+    display: flex;
+    flex-direction: column;
+    line-height:2.5rem;
+    border-radius: 0.7rem;
+    margin: 1rem;
+}
+
+.nav-option
+{
+    word-spacing:1rem;
+}
+.library
+{
+    background-color: #121212;
+    float: 1;
+    margin-top: 2rem;
+    height: 100%;
+    
+}
+.lib-option
+{
+    display: flex; 
+    justify-content: space-between;
+}
+.lib-option-right i 
+{
+ margin-left: 1rem;
+  
+}
+.lib-option-left a
+{ 
+ margin-left: 1rem;
+}
+.card
+{
+    width: 17rem;
+    height: 10rem;
+    background-color: #232323;
+    color: white;
+    margin-top: 1.5rem;
+    /* overflow: auto; */
+    margin-left:1rem;
+    /* padding-left: 0.2rem; */
+}
+.card h5 , p , button
+{
+     font-size: 1rem;
+}
+.lib-btn
+{
+    width: 10rem;
+    height: 2rem;
+    background-color: white;
+    border-radius:10rem;
+    border: 2px solid black;
+    /* font-size: 1rem; */
+}
+.card-body
+{
+display:flex;
+flex-direction: column;
+justify-content: space-around;
+}

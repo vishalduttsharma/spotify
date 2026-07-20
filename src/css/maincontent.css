@@ -1,0 +1,58 @@
+#maincontent
+{
+    background-color:#121212;
+    flex: 1;
+    border-radius: 1rem;
+    overflow: auto;
+    /* scrollbar-color: #232323; */
+    margin: 1rem;
+    
+}
+.maincontent-nav
+{
+    display: flex;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    margin-top: 1rem;
+}
+.maincontent-nav button
+{
+background-color:black;
+color: white;
+border-radius: 1rem;
+margin-right: 1rem;
+border: 2px solid black;
+/* opacity: 0.7; */
+}
+.maincontent-nav button:hover
+{
+    opacity: 1;
+}
+
+@media(width<1000px)
+{
+    #hide
+    {
+        display: none;
+    }
+}
+
+ h2{
+    margin: 1.5rem;
+}
+.songs-list-container
+{
+    display: flex;
+    flex-wrap: wrap;
+}
+#maincontent::-webkit-scrollbar
+{
+    background-color:transparent;
+  }
+  
+  #maincontent::-webkit-scrollbar-thumb
+{
+    background-color:#232323;
+    border-radius:70px;
+  }

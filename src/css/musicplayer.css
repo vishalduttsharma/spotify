@@ -1,0 +1,342 @@
+#musicplayer {
+    background-color: rgba(18, 18, 18, 0.85); /* Frosty dark theme */
+    backdrop-filter: blur(15px); /* glassmorphism */
+    -webkit-backdrop-filter: blur(15px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08); /* thin glowing border */
+    position: fixed;
+    bottom: 0px;
+    left: 0;
+    width: 100vw;
+    height: 90px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    z-index: 1000;
+    box-sizing: border-box;
+}
+
+.player-content {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Left Section: Song Details with Cover Image */
+.player-song-details {
+    display: flex;
+    align-items: center;
+    width: 30%;
+    min-width: 180px;
+}
+
+.player-cover {
+    width: 56px;
+    height: 56px;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-right: 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+}
+
+.player-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-right: 16px;
+    max-width: 180px;
+    overflow: hidden;
+}
+
+.player-song-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-song-singer {
+    font-size: 11px;
+    color: #b3b3b3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 3px;
+}
+
+.like-btn {
+    background: none;
+    border: none;
+    color: #b3b3b3;
+    font-size: 15px;
+    cursor: pointer;
+    transition: color 0.2s, transform 0.1s;
+    outline: none;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.like-btn:hover {
+    color: white;
+}
+
+.like-btn.liked {
+    color: #1db954; /* Spotify green like */
+}
+
+.like-btn.liked i {
+    animation: heartBeat 0.3s ease-out;
+}
+
+@keyframes heartBeat {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+/* Middle Section: Controls */
+.player-controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40%;
+    max-width: 600px;
+}
+
+.player-buttons {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.control-btn {
+    background: none;
+    border: none;
+    color: #b3b3b3;
+    font-size: 16px;
+    cursor: pointer;
+    transition: color 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    outline: none;
+}
+
+.control-btn:hover {
+    color: white;
+}
+
+.control-btn:active {
+    transform: scale(0.95);
+}
+
+.grey-btn {
+    color: #727272;
+    font-size: 14px;
+}
+
+.grey-btn:hover {
+    color: #b3b3b3;
+}
+
+.play-pause-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: white;
+    color: black;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: transform 0.1s;
+    outline: none;
+}
+
+.play-pause-btn:hover {
+    transform: scale(1.08);
+}
+
+.play-pause-btn:active {
+    transform: scale(0.95);
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+}
+
+.time {
+    color: #a7a7a7;
+    font-size: 11px;
+    min-width: 32px;
+    text-align: center;
+}
+
+/* Progress Slider Custom Wrapper Styling */
+.progress-slider-wrapper {
+    position: relative;
+    flex: 1;
+    height: 4px;
+    background-color: #4f4f4f;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+}
+
+.progress-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background-color: #ffffff;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.progress-bar-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    outline: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+    margin: 0;
+    z-index: 2;
+}
+
+/* Slider thumb styling */
+.progress-bar-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    opacity: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    transition: opacity 0.1s;
+}
+
+.progress-slider-wrapper:hover .progress-bar-fill {
+    background-color: #1db954; /* turns green on hover */
+}
+
+.progress-slider-wrapper:hover .progress-bar-slider::-webkit-slider-thumb {
+    opacity: 1; /* thumb shows on hover */
+}
+
+/* Right Section: Volume & Utilities */
+.player-utilities {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 30%;
+    min-width: 180px;
+    gap: 12px;
+}
+
+.utility-btn {
+    background: none;
+    border: none;
+    color: #b3b3b3;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    outline: none;
+}
+
+.utility-btn:hover {
+    color: white;
+}
+
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Volume Slider Wrapper Styling */
+.volume-slider-wrapper {
+    position: relative;
+    width: 90px;
+    height: 4px;
+    background-color: #4f4f4f;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+}
+
+.volume-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background-color: #ffffff;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    outline: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+    margin: 0;
+    z-index: 2;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    opacity: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    transition: opacity 0.1s;
+}
+
+.volume-slider-wrapper:hover .volume-bar-fill {
+    background-color: #1db954;
+}
+
+.volume-slider-wrapper:hover .volume-slider::-webkit-slider-thumb {
+    opacity: 1;
+}

@@ -1,0 +1,69 @@
+[
+  {
+    "id": 0,
+    "name": "Kesariya",
+    "singer": "Arijit Singh",
+    "audio": "/songs/1.mp3"
+  },
+  {
+    "id": 1,
+    "name": "Agar Tum Saath Ho",
+    "singer": "Alka Yagnik, Arijit Singh",
+    "audio": "/songs/2.mp3"
+  },
+  {
+    "id": 2,
+    "name": "Chal Chal Ve Tu Bandeya",
+    "singer": "Arijit Singh",
+    "audio": "/songs/3.mp3"
+  },
+  {
+    "id": 3,
+    "name": "Ghungroo",
+    "singer": "Arijit Singh, Shilpa Rao",
+    "audio": "/songs/4.mp3"
+  },
+  {
+    "id": 4,
+    "name": "Meet",
+    "singer": "Arijit Singh",
+    "audio": "/songs/5.mp3"
+  },
+  {
+    "id": 5,
+    "name": "Phir Aur Kya Chahiye",
+    "singer": "Arijit Singh",
+    "audio": "/songs/6.mp3"
+  },
+  {
+    "id": 6,
+    "name": "Sanam Re",
+    "singer": "Arijit Singh, Mithoon",
+    "audio": "/songs/7.mp3"
+  },
+  {
+    "id": 7,
+    "name": "Satranga",
+    "singer": "Arijit Singh",
+    "audio": "/songs/8.mp3"
+  },
+  {
+    "id": 8,
+    "name": "Shayad",
+    "singer": "Arijit Singh",
+    "audio": "/songs/9.mp3"
+  },
+  {
+    "id": 9,
+    "name": "Saiyaara",
+    "singer": "Faheem abdullah",
+    "audio": "/songs/10.mp3"
+  },
+  {
+    "id": 10,
+    "name": "ve haniya",
+    "singer": "neha kakkar",
+    "audio": "/songs/audio-1784538549063-317462740.mp3",
+    "img": "/songsimg/image-1784538549044-28389012.png"
+  }
+]
