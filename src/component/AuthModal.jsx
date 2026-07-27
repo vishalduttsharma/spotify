@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "../css/auth.css";
 
-export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
+export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = false }) {
   const [mode, setMode] = useState("signup"); // "signup" | "login"
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -64,7 +64,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       localStorage.setItem("spotify_current_user", JSON.stringify(newUser));
 
       onLoginSuccess(newUser);
-      onClose();
+      if (onClose) onClose();
     } else {
       // Log In mode for existing account
       if (!cleanGmail || !cleanPassword) {
@@ -83,7 +83,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
       localStorage.setItem("spotify_current_user", JSON.stringify(foundUser));
       onLoginSuccess(foundUser);
-      onClose();
+      if (onClose) onClose();
     }
   };
 
@@ -101,10 +101,14 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             <i className="fa-brands fa-spotify logo-icon"></i>
             <span>Spotify Account</span>
           </div>
-          {onClose && (
+          {canClose && onClose ? (
             <button className="auth-close-btn" onClick={onClose} title="Close">
               <i className="fa-solid fa-xmark"></i>
             </button>
+          ) : (
+            <span className="auth-required-badge">
+              <i className="fa-solid fa-lock" style={{ marginRight: "4px" }}></i> Login Required
+            </span>
           )}
         </div>
 
