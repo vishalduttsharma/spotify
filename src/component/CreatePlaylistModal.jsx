@@ -1,5 +1,5 @@
 import { useState } from "react";
-import songsData from "../page/songs.json";
+import { getAllSongs } from "../utils/songStorage";
 import "../css/playlist.css";
 
 export default function CreatePlaylistModal({ isOpen, onClose, onCreatePlaylist }) {
@@ -8,6 +8,8 @@ export default function CreatePlaylistModal({ isOpen, onClose, onCreatePlaylist 
   const [modalSearch, setModalSearch] = useState("");
 
   if (!isOpen) return null;
+
+  const songsData = getAllSongs();
 
   const filteredSongs = songsData.filter((song) =>
     song.name.toLowerCase().includes(modalSearch.toLowerCase()) ||

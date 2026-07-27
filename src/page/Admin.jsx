@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import songsData from "./songs.json";
+import { getAllSongs, saveCustomSong, deleteCustomSong } from "../utils/songStorage";
 import "../css/admin.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -14,8 +14,31 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success" | "error" | "info"
-  const [songs, setSongs] = useState(songsData || []);
+  const [songs, setSongs] = useState(() => getAllSongs());
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Registered User Data (userdata) state
+  const [registeredUsers, setRegisteredUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem("spotify_users");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+
+  const togglePasswordVisibility = (userId) => {
+    setVisiblePasswords((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const handleDeleteUser = (userId) => {
+    if (window.confirm("Are you sure you want to delete this user account?")) {
+      const updated = registeredUsers.filter((u) => u.id !== userId);
+      setRegisteredUsers(updated);
+      localStorage.setItem("spotify_users", JSON.stringify(updated));
+    }
+  };
 
   // Password & Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -58,7 +81,8 @@ export default function Admin() {
         setSongs(data);
       }
     } catch (err) {
-      console.warn("Backend server not reachable, using bundled songs catalog:", err);
+      console.warn("Backend server not reachable, using local storage songs:", err);
+      setSongs(getAllSongs());
     }
   };
 
@@ -103,6 +127,14 @@ export default function Admin() {
     setAudioFile(null);
   };
 
+  const readFileAsDataURL = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -113,7 +145,7 @@ export default function Admin() {
     }
 
     setLoading(true);
-    setMessage("Uploading your song to Spotify public directory...");
+    setMessage("Publishing your song to music library...");
     setMessageType("info");
 
     const formData = new FormData();
@@ -128,33 +160,53 @@ export default function Admin() {
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        setMessage("Song uploaded successfully! Re-indexing song list...");
+        const data = await response.json();
+        setMessage("Song uploaded successfully to backend!");
         setMessageType("success");
-        // Reset form
         setSongName("");
         setSingerName("");
         removeImage();
         removeAudio();
-        // Reset raw HTML form
         e.target.reset();
 
-        // Update local state
         if (data.song) {
           setSongs((prev) => [...prev, data.song]);
         } else {
           fetchSongs();
         }
-      } else {
-        setMessage(data.error || "Upload failed.");
+        return;
+      }
+      throw new Error("Backend server not responding");
+    } catch {
+      // Vercel / Client-side Fallback using Data URLs
+      try {
+        const imgUrl = await readFileAsDataURL(imageFile);
+        const audioUrl = await readFileAsDataURL(audioFile);
+
+        const newSong = {
+          id: Date.now(),
+          name: songName,
+          singer: singerName,
+          img: imgUrl,
+          audio: audioUrl
+        };
+
+        const updated = saveCustomSong(newSong);
+        setSongs(updated);
+
+        setMessage("Track published successfully to Spotify library!");
+        setMessageType("success");
+        setSongName("");
+        setSingerName("");
+        removeImage();
+        removeAudio();
+        e.target.reset();
+      } catch (localErr) {
+        console.error(localErr);
+        setMessage("Failed to process media files.");
         setMessageType("error");
       }
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to connect to the backend server. Make sure the Node server is running.");
-      setMessageType("error");
     } finally {
       setLoading(false);
     }
@@ -170,20 +222,19 @@ export default function Admin() {
         method: "DELETE",
       });
 
-      const data = await response.json();
-
       if (response.ok) {
         setSongs((prev) => prev.filter((song) => song.id !== id));
         setMessage("Song deleted successfully!");
         setMessageType("success");
-      } else {
-        setMessage(data.error || "Failed to delete song.");
-        setMessageType("error");
+        return;
       }
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to connect to the backend server.");
-      setMessageType("error");
+      throw new Error("Backend delete failed");
+    } catch {
+      // Fallback for Vercel / Local storage custom songs
+      const updated = deleteCustomSong(id);
+      setSongs(updated);
+      setMessage("Song deleted successfully!");
+      setMessageType("success");
     }
   };
 
@@ -455,6 +506,69 @@ export default function Admin() {
             <Link to="/" className="back-link">
               <i className="fa-solid fa-arrow-left" style={{ marginRight: '8px' }}></i>Back to Player
             </Link>
+          </div>
+
+          {/* User Data (userdata) Card */}
+          <div className="userdata-card">
+            <div className="userdata-header">
+              <h3 className="userdata-title">
+                <i className="fa-solid fa-users"></i> Registered User Data (userdata)
+              </h3>
+              <span className="userdata-count">{registeredUsers.length} Accounts</span>
+            </div>
+
+            <div className="userdata-list-scroll">
+              {registeredUsers.map((user) => {
+                const isPwdVisible = visiblePasswords[user.id];
+                return (
+                  <div key={user.id} className="userdata-item">
+                    <div className="userdata-avatar">
+                      {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div className="userdata-info">
+                      <div className="userdata-name-row">
+                        <span className="userdata-fullname">{user.name}</span>
+                        <span className="userdata-username">@{user.username}</span>
+                      </div>
+                      <div className="userdata-meta-row">
+                        <span className="userdata-gmail">
+                          <i className="fa-solid fa-envelope"></i> {user.gmail}
+                        </span>
+                        <span className="userdata-password">
+                          <i className="fa-solid fa-lock"></i>{" "}
+                          {isPwdVisible ? user.password : "••••••••"}
+                          <button
+                            type="button"
+                            className="pwd-toggle-btn"
+                            onClick={() => togglePasswordVisibility(user.id)}
+                            title={isPwdVisible ? "Hide password" : "Show password"}
+                          >
+                            <i className={`fa-solid ${isPwdVisible ? "fa-eye-slash" : "fa-eye"}`}></i>
+                          </button>
+                        </span>
+                        {user.createdAt && (
+                          <span className="userdata-date">• {user.createdAt}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      className="userdata-delete-btn"
+                      title="Delete user account"
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      <i className="fa-regular fa-trash-can"></i>
+                    </button>
+                  </div>
+                );
+              })}
+
+              {registeredUsers.length === 0 && (
+                <div className="empty-library" style={{ padding: "20px" }}>
+                  <i className="fa-solid fa-user-slash empty-icon"></i>
+                  <p>No registered user accounts yet.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

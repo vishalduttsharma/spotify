@@ -1,5 +1,5 @@
 import { useState } from "react";
-import songsData from "../page/songs.json";
+import { getAllSongs } from "../utils/songStorage";
 import "../css/playlist.css";
 
 export default function AddSongsModal({ isOpen, onClose, playlist, onAddSongs }) {
@@ -7,6 +7,8 @@ export default function AddSongsModal({ isOpen, onClose, playlist, onAddSongs })
   const [searchQuery, setSearchQuery] = useState("");
 
   if (!isOpen || !playlist) return null;
+
+  const songsData = getAllSongs();
 
   // Filter songs that are NOT already in the playlist
   const availableSongs = songsData.filter(

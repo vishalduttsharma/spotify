@@ -6,6 +6,7 @@ import MobileNav from "./component/MobileNav";
 import CreatePlaylistModal from "./component/CreatePlaylistModal";
 import AddSongsModal from "./component/AddSongsModal";
 import RenamePlaylistModal from "./component/RenamePlaylistModal";
+import AuthModal from "./component/AuthModal";
 import '../src/css/app.css';
 import '../src/css/mobilenav.css';
 import '../src/css/playlist.css';
@@ -15,6 +16,26 @@ import Admin from "./page/Admin";
 export default function App() {
   const [currentSong, setCurrentSong] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Current logged in user state
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("spotify_current_user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Auth modal state - opens automatically if not logged in
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("spotify_current_user");
+      return !savedUser;
+    } catch {
+      return true;
+    }
+  });
 
   // Playlists state loaded from localStorage
   const [playlists, setPlaylists] = useState(() => {
@@ -30,6 +51,12 @@ export default function App() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [addSongsTargetPlaylist, setAddSongsTargetPlaylist] = useState(null);
   const [renameTargetPlaylist, setRenameTargetPlaylist] = useState(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem("spotify_current_user");
+    setCurrentUser(null);
+    setIsAuthModalOpen(true);
+  };
 
   // Sync playlists to localStorage whenever updated
   useEffect(() => {
@@ -132,6 +159,9 @@ export default function App() {
                   onDeleteWholePlaylist={handleDeletePlaylist}
                   onRemoveSongFromPlaylist={handleRemoveSongFromPlaylist}
                   onBackToHome={() => setActivePlaylistId(null)}
+                  currentUser={currentUser}
+                  onOpenAuthModal={() => setIsAuthModalOpen(true)}
+                  onLogout={handleLogout}
                 />
 
                 <Musicplayer currentSong={currentSong} />
@@ -139,6 +169,12 @@ export default function App() {
                 <MobileNav onToggleSidebar={toggleSidebar} />
 
                 {/* Modals */}
+                <AuthModal 
+                  isOpen={isAuthModalOpen}
+                  onClose={() => setIsAuthModalOpen(false)}
+                  onLoginSuccess={(user) => setCurrentUser(user)}
+                />
+
                 <CreatePlaylistModal 
                   isOpen={isCreateModalOpen}
                   onClose={() => setIsCreateModalOpen(false)}

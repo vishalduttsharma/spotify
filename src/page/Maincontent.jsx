@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Songcard from "../component/Songcard";
 import Songlist from "../component/Songlist";
-import songsData from "./songs.json";
+import { getAllSongs } from "../utils/songStorage";
 import "../css/maincontent.css";
 import '../css/musicplayer.css';
 import '../css/playlist.css';
+import '../css/auth.css';
 
 export default function Maincontent({ 
   onSongSelect, 
@@ -15,19 +16,24 @@ export default function Maincontent({
   onOpenRenameModal,
   onDeleteWholePlaylist,
   onRemoveSongFromPlaylist,
-  onBackToHome
+  onBackToHome,
+  currentUser,
+  onOpenAuthModal,
+  onLogout
 }) {
   const [searchFilter, setSearchFilter] = useState("");
   const [playlistSearchQuery, setPlaylistSearchQuery] = useState("");
 
-  const filteredCatalogSongs = songsData.filter(song => 
+  const allSongs = getAllSongs();
+
+  const filteredCatalogSongs = allSongs.filter(song => 
     song.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
     song.singer.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
   // If a playlist is active, filter its songs
   const playlistSongs = activePlaylist
-    ? songsData.filter(s => activePlaylist.songIds.includes(s.id))
+    ? allSongs.filter(s => activePlaylist.songIds.includes(s.id))
     : [];
 
   const filteredPlaylistSongs = playlistSongs.filter(song =>
@@ -92,9 +98,22 @@ export default function Maincontent({
               <span className="nav-btn-text">Admin</span>
             </button>
           </Link>
-          <button className="nav-btn profile-btn" title="Profile">
-            <i className="fa-solid fa-user"></i>
-          </button>
+          
+          {currentUser ? (
+            <div className="user-profile-badge" title={`Logged in as ${currentUser.name} (@${currentUser.username}) - ${currentUser.gmail}`}>
+              <div className="user-avatar-circle">
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
+              </div>
+              <span className="user-display-name">{currentUser.name || currentUser.username}</span>
+              <button className="logout-mini-btn" onClick={onLogout} title="Logout account">
+                <i className="fa-solid fa-right-from-bracket"></i>
+              </button>
+            </div>
+          ) : (
+            <button className="nav-btn profile-btn" title="Log In / Sign Up" onClick={onOpenAuthModal}>
+              <i className="fa-solid fa-user"></i>
+            </button>
+          )}
         </div>
       </div>
 
