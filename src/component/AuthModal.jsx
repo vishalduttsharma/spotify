@@ -223,41 +223,41 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
           ) : (
             /* Normal Signup / Login Mode */
             <>
-              {/* Full Name (Sign Up only) */}
+              {/* Full Name & Username in 1 row for compact mobile height */}
               {mode === "signup" && (
-                <div className="auth-field-group">
-                  <label className="auth-label">Full Name</label>
-                  <div className="auth-input-wrapper">
-                    <i className="fa-solid fa-user input-icon"></i>
-                    <input
-                      type="text"
-                      className="auth-input-field"
-                      placeholder="e.g. Vishal Sharma"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                    />
+                <div className="auth-field-row">
+                  <div className="auth-field-group">
+                    <label className="auth-label">Full Name</label>
+                    <div className="auth-input-wrapper">
+                      <i className="fa-solid fa-user input-icon"></i>
+                      <input
+                        type="text"
+                        className="auth-input-field"
+                        placeholder="e.g. Vishal"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="auth-field-group">
+                    <label className="auth-label">Username</label>
+                    <div className="auth-input-wrapper">
+                      <i className="fa-solid fa-at input-icon"></i>
+                      <input
+                        type="text"
+                        className="auth-input-field"
+                        placeholder="e.g. vishal_music"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Username (Sign Up only) */}
-              {mode === "signup" && (
-                <div className="auth-field-group">
-                  <label className="auth-label">Username</label>
-                  <div className="auth-input-wrapper">
-                    <i className="fa-solid fa-at input-icon"></i>
-                    <input
-                      type="text"
-                      className="auth-input-field"
-                      placeholder="e.g. vishal_music"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-              )}
 
               {/* Gmail ID */}
               <div className="auth-field-group">
