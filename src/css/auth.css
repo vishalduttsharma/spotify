@@ -237,6 +237,39 @@
   box-shadow: 0 6px 20px rgba(29, 185, 84, 0.4);
 }
 
+.auth-submit-main-btn.admin-submit {
+  background: linear-gradient(135deg, #1DB954 0%, #3b82f6 100%);
+  color: white;
+}
+
+.auth-submit-main-btn.admin-submit:hover {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.admin-direct-link-box {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.auth-admin-link-btn {
+  background: rgba(29, 185, 84, 0.1) !important;
+  border: 1px solid rgba(29, 185, 84, 0.25) !important;
+  color: #1DB954 !important;
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.auth-admin-link-btn:hover {
+  background: rgba(29, 185, 84, 0.25) !important;
+  transform: scale(1.03);
+}
+
 /* Footer Link Prompt */
 .auth-footer-prompt {
   text-align: center;
