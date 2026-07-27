@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getAllSongs, saveCustomSong, deleteCustomSong } from "../utils/songStorage";
+import { getCloudUsers, deleteUserFromCloud } from "../utils/cloudDb";
 import "../css/admin.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -26,19 +27,39 @@ export default function Admin() {
       return [];
     }
   });
+  const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState({});
+
+  const refreshUsers = async () => {
+    setIsRefreshingUsers(true);
+    try {
+      const cloudUsers = await getCloudUsers();
+      setRegisteredUsers(cloudUsers);
+    } catch (err) {
+      console.error("Failed to fetch cloud users:", err);
+    } finally {
+      setIsRefreshingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshUsers();
+    // Auto-refresh users every 10 seconds to catch live signups on Vercel
+    const interval = setInterval(refreshUsers, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const togglePasswordVisibility = (userId) => {
     setVisiblePasswords((prev) => ({ ...prev, [userId]: !prev[userId] }));
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user account?")) {
-      const updated = registeredUsers.filter((u) => u.id !== userId);
+      const updated = await deleteUserFromCloud(userId);
       setRegisteredUsers(updated);
-      localStorage.setItem("spotify_users", JSON.stringify(updated));
     }
   };
+
 
   // Password & Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -514,7 +535,18 @@ export default function Admin() {
               <h3 className="userdata-title">
                 <i className="fa-solid fa-users"></i> Registered User Data (userdata)
               </h3>
-              <span className="userdata-count">{registeredUsers.length} Accounts</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={refreshUsers}
+                  className="pwd-toggle-btn"
+                  title="Sync latest users from cloud database"
+                  style={{ fontSize: "14px", color: "#1DB954", cursor: "pointer", background: "none", border: "none" }}
+                >
+                  <i className={`fa-solid fa-rotate ${isRefreshingUsers ? "fa-spin" : ""}`}></i> Sync DB
+                </button>
+                <span className="userdata-count">{registeredUsers.length} Accounts</span>
+              </div>
             </div>
 
             <div className="userdata-list-scroll">

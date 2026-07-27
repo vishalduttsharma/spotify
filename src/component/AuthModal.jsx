@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCloudUsers, saveUserToCloud } from "../utils/cloudDb";
 import "../css/auth.css";
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = false }) {
@@ -11,12 +12,13 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
   const [adminPassword, setAdminPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
 
@@ -43,71 +45,78 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
     const cleanGmail = gmail.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Fetch existing users from localStorage
-    let users = [];
+    setIsSubmitting(true);
+
     try {
-      const savedUsers = localStorage.getItem("spotify_users");
-      users = savedUsers ? JSON.parse(savedUsers) : [];
-    } catch {
-      users = [];
-    }
+      // Fetch latest global users from Cloud DB
+      const users = await getCloudUsers();
 
-    if (mode === "signup") {
-      // Validation for Sign Up
-      if (!fullName.trim() || !username.trim() || !cleanGmail || !cleanPassword) {
-        setErrorMsg("Please fill in all fields to create your account.");
-        return;
+      if (mode === "signup") {
+        // Validation for Sign Up
+        if (!fullName.trim() || !username.trim() || !cleanGmail || !cleanPassword) {
+          setErrorMsg("Please fill in all fields to create your account.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Check if Gmail already exists globally
+        const existingUser = users.find((u) => u.gmail && u.gmail.toLowerCase() === cleanGmail);
+        if (existingUser) {
+          setErrorMsg("Account with this Gmail already exists. Please log in instead.");
+          setMode("login");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Create New User Object
+        const newUser = {
+          id: `user-${Date.now()}`,
+          name: fullName.trim(),
+          username: username.trim(),
+          gmail: cleanGmail,
+          password: cleanPassword,
+          createdAt: new Date().toLocaleDateString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          })
+        };
+
+        // Save to Cloud DB globally & local storage
+        await saveUserToCloud(newUser);
+        localStorage.setItem("spotify_current_user", JSON.stringify(newUser));
+
+        onLoginSuccess(newUser);
+        if (onClose) onClose();
+      } else {
+        // Log In mode for existing account
+        if (!cleanGmail || !cleanPassword) {
+          setErrorMsg("Please enter your Gmail and Password.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const foundUser = users.find(
+          (u) => u.gmail && u.gmail.toLowerCase() === cleanGmail && u.password === cleanPassword
+        );
+
+        if (!foundUser) {
+          setErrorMsg("Invalid Gmail ID or Password. If you don't have an account, please Sign Up.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        localStorage.setItem("spotify_current_user", JSON.stringify(foundUser));
+        onLoginSuccess(foundUser);
+        if (onClose) onClose();
       }
-
-      // Check if Gmail already exists
-      const existingUser = users.find((u) => u.gmail.toLowerCase() === cleanGmail);
-      if (existingUser) {
-        setErrorMsg("Account with this Gmail already exists. Please log in instead.");
-        setMode("login");
-        return;
-      }
-
-      // Create New User Object
-      const newUser = {
-        id: `user-${Date.now()}`,
-        name: fullName.trim(),
-        username: username.trim(),
-        gmail: cleanGmail,
-        password: cleanPassword,
-        createdAt: new Date().toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit"
-        })
-      };
-
-      const updatedUsers = [...users, newUser];
-      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-      localStorage.setItem("spotify_current_user", JSON.stringify(newUser));
-
-      onLoginSuccess(newUser);
-      if (onClose) onClose();
-    } else {
-      // Log In mode for existing account
-      if (!cleanGmail || !cleanPassword) {
-        setErrorMsg("Please enter your Gmail and Password.");
-        return;
-      }
-
-      const foundUser = users.find(
-        (u) => u.gmail.toLowerCase() === cleanGmail && u.password === cleanPassword
-      );
-
-      if (!foundUser) {
-        setErrorMsg("Invalid Gmail ID or Password. If you don't have an account, please Sign Up.");
-        return;
-      }
-
-      localStorage.setItem("spotify_current_user", JSON.stringify(foundUser));
-      onLoginSuccess(foundUser);
-      if (onClose) onClose();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg("Network error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
