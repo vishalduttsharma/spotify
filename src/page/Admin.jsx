@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import songsData from "./songs.json";
 import "../css/admin.css";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function Admin() {
   const [imageFile, setImageFile] = useState(null);
@@ -10,7 +14,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success" | "error" | "info"
-  const [songs, setSongs] = useState([]);
+  const [songs, setSongs] = useState(songsData || []);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Password & Authentication State
@@ -48,13 +52,13 @@ export default function Admin() {
 
   const fetchSongs = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/songs");
+      const response = await fetch(`${API_BASE}/api/songs`);
       if (response.ok) {
         const data = await response.json();
         setSongs(data);
       }
     } catch (err) {
-      console.error("Error fetching songs:", err);
+      console.warn("Backend server not reachable, using bundled songs catalog:", err);
     }
   };
 
@@ -119,7 +123,7 @@ export default function Admin() {
     formData.append("singer", singerName);
 
     try {
-      const response = await fetch("http://localhost:5000/api/upload", {
+      const response = await fetch(`${API_BASE}/api/upload`, {
         method: "POST",
         body: formData,
       });
@@ -149,7 +153,7 @@ export default function Admin() {
       }
     } catch (err) {
       console.error(err);
-      setMessage("Failed to connect to the backend server. Make sure the Node server is running on port 5000.");
+      setMessage("Failed to connect to the backend server. Make sure the Node server is running.");
       setMessageType("error");
     } finally {
       setLoading(false);
@@ -162,7 +166,7 @@ export default function Admin() {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/songs/${id}`, {
+      const response = await fetch(`${API_BASE}/api/songs/${id}`, {
         method: "DELETE",
       });
 
@@ -215,9 +219,9 @@ export default function Admin() {
             </button>
           </form>
 
-          <a href="/" className="auth-back-link">
+          <Link to="/" className="auth-back-link">
             <i className="fa-solid fa-arrow-left" style={{ marginRight: '8px' }}></i> Back to Player
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -448,9 +452,9 @@ export default function Admin() {
 
           {/* Back Link */}
           <div className="back-link-container">
-            <a href="/" className="back-link">
+            <Link to="/" className="back-link">
               <i className="fa-solid fa-arrow-left" style={{ marginRight: '8px' }}></i>Back to Player
-            </a>
+            </Link>
           </div>
         </div>
 

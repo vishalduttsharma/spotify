@@ -58,12 +58,5 @@
     "name": "Saiyaara",
     "singer": "Faheem abdullah",
     "audio": "/songs/10.mp3"
-  },
-  {
-    "id": 10,
-    "name": "ve haniya",
-    "singer": "neha kakkar",
-    "audio": "/songs/audio-1784538549063-317462740.mp3",
-    "img": "/songsimg/image-1784538549044-28389012.png"
   }
 ]

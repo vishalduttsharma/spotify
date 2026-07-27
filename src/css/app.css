@@ -1,6 +1,16 @@
-.main
-{
-   display: flex;
-   height: 100vh;
-   overflow: hidden;
+.main {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+  background-color: #000000;
+  box-sizing: border-box;
+}
+
+@media (max-width: 991px) {
+  .main {
+    flex-direction: column;
+  }
 }

@@ -113,8 +113,18 @@ export default function Musicplayer({ currentSong }) {
   const songSinger = currentSong ? currentSong.singer : "Arijit Singh";
   const audioSrc = currentSong ? currentSong.audio : "/songs/1.mp3";
 
+  const progressPercent = (currentTime / (duration || 100)) * 100;
+
   return (
     <div id="musicplayer">
+      {/* Mobile Top Thin Progress Line */}
+      <div className="mobile-top-progress">
+        <div 
+          className="mobile-top-progress-fill" 
+          style={{ width: `${progressPercent}%` }}
+        ></div>
+      </div>
+
       <audio
         ref={audioRef}
         src={audioSrc}
@@ -136,6 +146,7 @@ export default function Musicplayer({ currentSong }) {
           <button 
             className={`like-btn ${isLiked ? 'liked' : ''}`} 
             onClick={() => setIsLiked(!isLiked)}
+            aria-label="Like song"
           >
             {isLiked ? (
               <i className="fa-solid fa-heart"></i>
@@ -148,23 +159,23 @@ export default function Musicplayer({ currentSong }) {
         {/* Middle Section: Custom Playback Controls */}
         <div className="player-controls-container">
           <div className="player-buttons">
-            <button className="control-btn grey-btn">
+            <button className="control-btn grey-btn hide-mobile" aria-label="Shuffle">
               <i className="fa-solid fa-shuffle"></i>
             </button>
-            <button className="control-btn">
+            <button className="control-btn" aria-label="Previous track">
               <i className="fa-solid fa-backward-step"></i>
             </button>
-            <button className="play-pause-btn" onClick={togglePlay}>
+            <button className="play-pause-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? (
                 <i className="fa-solid fa-pause"></i>
               ) : (
                 <i className="fa-solid fa-play" style={{ marginLeft: "2px" }}></i>
               )}
             </button>
-            <button className="control-btn">
+            <button className="control-btn" aria-label="Next track">
               <i className="fa-solid fa-forward-step"></i>
             </button>
-            <button className="control-btn grey-btn">
+            <button className="control-btn grey-btn hide-mobile" aria-label="Repeat">
               <i className="fa-solid fa-repeat"></i>
             </button>
           </div>
@@ -182,7 +193,7 @@ export default function Musicplayer({ currentSong }) {
               />
               <div 
                 className="progress-bar-fill" 
-                style={{ width: `${(currentTime / (duration || 100)) * 100}%` }}
+                style={{ width: `${progressPercent}%` }}
               ></div>
             </div>
             <span className="time">{formatTime(duration)}</span>
@@ -191,14 +202,14 @@ export default function Musicplayer({ currentSong }) {
 
         {/* Right Section: Volume & Utilities */}
         <div className="player-utilities">
-          <button className="utility-btn">
+          <button className="utility-btn hide-mobile" aria-label="Lyrics">
             <i className="fa-solid fa-microphone"></i>
           </button>
-          <button className="utility-btn">
+          <button className="utility-btn hide-mobile" aria-label="Queue">
             <i className="fa-solid fa-list-ul"></i>
           </button>
           <div className="volume-control">
-            <button className="utility-btn" onClick={toggleMute}>
+            <button className="utility-btn" onClick={toggleMute} aria-label="Mute / Unmute">
               {isMuted || volume === 0 ? (
                 <i className="fa-solid fa-volume-xmark" style={{ color: "#1db954" }}></i>
               ) : volume < 0.4 ? (
