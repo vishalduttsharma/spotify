@@ -44,8 +44,8 @@ export default function Admin() {
 
   useEffect(() => {
     refreshUsers();
-    // Auto-refresh users every 10 seconds to catch live signups on Vercel
-    const interval = setInterval(refreshUsers, 10000);
+    // Auto-refresh users every 4 seconds to catch live signups from mobile devices & Vercel
+    const interval = setInterval(refreshUsers, 4000);
     return () => clearInterval(interval);
   }, []);
 

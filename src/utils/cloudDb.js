@@ -1,28 +1,66 @@
-// Global Cloud Database for syncing registered users across all devices and Vercel hosting
-const CLOUD_DB_URL = "https://jsonblob.com/api/jsonBlob/019fa4af-988d-77e1-bed0-56131f0fd0f0";
+// Global Cloud Database endpoints for syncing registered users across all devices, mobile phones & Vercel
+const PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7b5-aa76-7e66-ad1e-becc0d56d7fa";
+const SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa4af-988d-77e1-bed0-56131f0fd0f0";
 
-// Cache-busting fetch wrapper for real-time sync across mobile phones & web
+// Cache-busting fetch wrapper with fallback redundancy across cloud endpoints
 async function fetchCloudUsersData() {
-  const cacheBustUrl = `${CLOUD_DB_URL}?t=${Date.now()}`;
-  const res = await fetch(cacheBustUrl, {
-    method: "GET",
-    cache: "no-store",
-    headers: {
-      "Accept": "application/json",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      "Pragma": "no-cache"
-    }
-  });
-  if (res.ok) {
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("spotify_users", JSON.stringify(data));
+  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB];
+
+  for (const url of endpoints) {
+    try {
+      const cacheBustUrl = `${url}?t=${Date.now()}`;
+      const res = await fetch(cacheBustUrl, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Accept": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("spotify_users", JSON.stringify(data));
+          }
+          return data;
+        }
       }
-      return data;
+    } catch (err) {
+      console.warn(`Failed to fetch cloud users from ${url}:`, err);
     }
   }
-  throw new Error("Failed to fetch cloud users");
+
+  throw new Error("Failed to fetch cloud users from all endpoints");
+}
+
+// Push updated users array to Cloud DB endpoints with strict confirmation
+async function pushToCloudDb(usersArray) {
+  let success = false;
+  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(usersArray)
+      });
+      if (res.ok) {
+        success = true;
+      }
+    } catch (err) {
+      console.warn(`Failed to push to cloud DB endpoint ${url}:`, err);
+    }
+  }
+
+  if (!success) {
+    throw new Error("Could not sync user to global Cloud Database. Please check your internet connection.");
+  }
 }
 
 export async function getCloudUsers() {
@@ -59,7 +97,7 @@ export async function saveUserToCloud(newUser) {
     }
   }
 
-  // Prevent duplicate emails
+  // Prevent duplicate emails (case-insensitive)
   const filtered = currentUsers.filter(
     (u) => u.gmail && u.gmail.toLowerCase() !== newUser.gmail.toLowerCase()
   );
@@ -73,21 +111,11 @@ export async function saveUserToCloud(newUser) {
 
   const updatedUsers = [...filtered, userToSave];
 
+  // Save to cloud DB FIRST to guarantee global availability
+  await pushToCloudDb(updatedUsers);
+
   if (typeof localStorage !== "undefined") {
     localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
-
-  try {
-    await fetch(CLOUD_DB_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(updatedUsers)
-    });
-  } catch (err) {
-    console.warn("Could not sync user to cloud DB:", err);
   }
 
   return updatedUsers;
@@ -108,7 +136,16 @@ export async function deleteUserFromCloud(userId) {
     }
   }
 
-  const updatedUsers = currentUsers.filter((u) => u.id !== userId);
+  const updatedUsers = currentUsers.filter(
+    (u) => u.id !== userId && (typeof userId !== "object" || u.id !== userId.id)
+  );
+
+  // Update cloud DB
+  try {
+    await pushToCloudDb(updatedUsers);
+  } catch (err) {
+    console.warn("Error updating cloud DB during deletion:", err);
+  }
 
   if (typeof localStorage !== "undefined") {
     localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
@@ -123,19 +160,6 @@ export async function deleteUserFromCloud(userId) {
         }
       } catch {}
     }
-  }
-
-  try {
-    await fetch(CLOUD_DB_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(updatedUsers)
-    });
-  } catch (err) {
-    console.warn("Could not delete user from cloud DB:", err);
   }
 
   return updatedUsers;
@@ -163,21 +187,10 @@ export async function banUserInCloud(userId) {
     return u;
   });
 
+  await pushToCloudDb(updatedUsers);
+
   if (typeof localStorage !== "undefined") {
     localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
-
-  try {
-    await fetch(CLOUD_DB_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(updatedUsers)
-    });
-  } catch (err) {
-    console.warn("Could not ban user in cloud DB:", err);
   }
 
   return updatedUsers;
@@ -205,21 +218,10 @@ export async function unbanUserInCloud(userId) {
     return u;
   });
 
+  await pushToCloudDb(updatedUsers);
+
   if (typeof localStorage !== "undefined") {
     localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
-
-  try {
-    await fetch(CLOUD_DB_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(updatedUsers)
-    });
-  } catch (err) {
-    console.warn("Could not unban user in cloud DB:", err);
   }
 
   return updatedUsers;
@@ -262,21 +264,10 @@ export async function submitUnbanRequestInCloud(userId, reason) {
     return u;
   });
 
+  await pushToCloudDb(updatedUsers);
+
   if (typeof localStorage !== "undefined") {
     localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
-
-  try {
-    await fetch(CLOUD_DB_URL, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(updatedUsers)
-    });
-  } catch (err) {
-    console.warn("Could not submit unban request to cloud DB:", err);
   }
 
   return updatedTargetUser;
