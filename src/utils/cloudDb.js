@@ -72,7 +72,7 @@ async function fetchAndMergeAllUsers() {
         }
       }
     }
-  } catch {}
+  } catch { /* empty */ }
 
   const mergedUsers = mergeUsersLists(...fetchedLists);
 
@@ -191,7 +191,7 @@ export async function deleteUserFromCloud(userId) {
         ) {
           localStorage.removeItem("spotify_current_user");
         }
-      } catch {}
+      } catch { /* empty */ }
     }
   }
 
