@@ -3,40 +3,11 @@ const PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7b5-aa76-7e66-a
 const SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa4af-988d-77e1-bed0-56131f0fd0f0";
 const TERTIARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7c2-1c42-7af9-a036-ba2b79d93734";
 
-// Helper: Safely merge multiple lists of users by unique Gmail (or ID) without losing any registered user
-function mergeUsersLists(...lists) {
-  const userMap = new Map();
-
-  for (const list of lists) {
-    if (Array.isArray(list)) {
-      for (const user of list) {
-        if (user && (user.gmail || user.id)) {
-          const key = user.gmail ? user.gmail.toLowerCase() : user.id;
-          if (!userMap.has(key)) {
-            userMap.set(key, user);
-          } else {
-            // Combine fields, keeping ban status / appeal data if present
-            const existing = userMap.get(key);
-            userMap.set(key, {
-              ...existing,
-              ...user,
-              isBanned: Boolean(user.isBanned || existing.isBanned),
-              unbanRequestReason: user.unbanRequestReason || existing.unbanRequestReason || "",
-              unbanRequestDate: user.unbanRequestDate || existing.unbanRequestDate || ""
-            });
-          }
-        }
-      }
-    }
-  }
-
-  return Array.from(userMap.values());
-}
-
-// Fetch from ALL endpoints & local storage, merging into one master user array
+// The primary endpoint is the source of truth. Local storage must never be
+// merged into a successful cloud response: an old local account would otherwise
+// resurrect a deleted account or overwrite an Unban action.
 async function fetchAndMergeAllUsers() {
   const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
-  const fetchedLists = [];
 
   for (const url of endpoints) {
     try {
@@ -55,7 +26,10 @@ async function fetchAndMergeAllUsers() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          fetchedLists.push(data);
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("spotify_users", JSON.stringify(data));
+          }
+          return data;
         }
       }
     } catch (err) {
@@ -63,26 +37,20 @@ async function fetchAndMergeAllUsers() {
     }
   }
 
-  // Include local storage fallback data in merge
+  // Offline fallback only. It is intentionally not merged with cloud data.
   try {
     if (typeof localStorage !== "undefined") {
       const local = localStorage.getItem("spotify_users");
       if (local) {
         const parsed = JSON.parse(local);
         if (Array.isArray(parsed)) {
-          fetchedLists.push(parsed);
+          return parsed;
         }
       }
     }
   } catch { /* empty */ }
 
-  const mergedUsers = mergeUsersLists(...fetchedLists);
-
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(mergedUsers));
-  }
-
-  return mergedUsers;
+  return [];
 }
 
 // Push updated master users array to ALL cloud DB endpoints to keep every server in sync
