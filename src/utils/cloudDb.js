@@ -46,8 +46,10 @@ async function fetchAndMergeAllUsers() {
         cache: "no-store",
         headers: {
           "Accept": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache"
+          // `Pragma` is not permitted by the JSONBlob CORS preflight response.
+          // Sending it made every browser on Vercel fall back to its own
+          // localStorage, so accounts were invisible on other devices.
+          "Cache-Control": "no-cache, no-store, must-revalidate"
         }
       });
       if (res.ok) {
