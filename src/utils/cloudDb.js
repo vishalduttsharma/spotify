@@ -1,10 +1,11 @@
 // Global Cloud Database endpoints for syncing registered users across all devices, mobile phones & Vercel
 const PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7b5-aa76-7e66-ad1e-becc0d56d7fa";
 const SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa4af-988d-77e1-bed0-56131f0fd0f0";
+const TERTIARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7c2-1c42-7af9-a036-ba2b79d93734";
 
 // Cache-busting fetch wrapper with fallback redundancy across cloud endpoints
 async function fetchCloudUsersData() {
-  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB];
+  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
 
   for (const url of endpoints) {
     try {
@@ -38,7 +39,7 @@ async function fetchCloudUsersData() {
 // Push updated users array to Cloud DB endpoints with strict confirmation
 async function pushToCloudDb(usersArray) {
   let success = false;
-  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB];
+  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
 
   for (const url of endpoints) {
     try {
