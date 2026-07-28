@@ -3,9 +3,40 @@ const PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7b5-aa76-7e66-a
 const SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa4af-988d-77e1-bed0-56131f0fd0f0";
 const TERTIARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fa7c2-1c42-7af9-a036-ba2b79d93734";
 
-// Cache-busting fetch wrapper with fallback redundancy across cloud endpoints
-async function fetchCloudUsersData() {
+// Helper: Safely merge multiple lists of users by unique Gmail (or ID) without losing any registered user
+function mergeUsersLists(...lists) {
+  const userMap = new Map();
+
+  for (const list of lists) {
+    if (Array.isArray(list)) {
+      for (const user of list) {
+        if (user && (user.gmail || user.id)) {
+          const key = user.gmail ? user.gmail.toLowerCase() : user.id;
+          if (!userMap.has(key)) {
+            userMap.set(key, user);
+          } else {
+            // Combine fields, keeping ban status / appeal data if present
+            const existing = userMap.get(key);
+            userMap.set(key, {
+              ...existing,
+              ...user,
+              isBanned: Boolean(user.isBanned || existing.isBanned),
+              unbanRequestReason: user.unbanRequestReason || existing.unbanRequestReason || "",
+              unbanRequestDate: user.unbanRequestDate || existing.unbanRequestDate || ""
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(userMap.values());
+}
+
+// Fetch from ALL endpoints & local storage, merging into one master user array
+async function fetchAndMergeAllUsers() {
   const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
+  const fetchedLists = [];
 
   for (const url of endpoints) {
     try {
@@ -22,23 +53,39 @@ async function fetchCloudUsersData() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          if (typeof localStorage !== "undefined") {
-            localStorage.setItem("spotify_users", JSON.stringify(data));
-          }
-          return data;
+          fetchedLists.push(data);
         }
       }
     } catch (err) {
-      console.warn(`Failed to fetch cloud users from ${url}:`, err);
+      console.warn(`Fetch from ${url} skipped:`, err);
     }
   }
 
-  throw new Error("Failed to fetch cloud users from all endpoints");
+  // Include local storage fallback data in merge
+  try {
+    if (typeof localStorage !== "undefined") {
+      const local = localStorage.getItem("spotify_users");
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          fetchedLists.push(parsed);
+        }
+      }
+    }
+  } catch {}
+
+  const mergedUsers = mergeUsersLists(...fetchedLists);
+
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("spotify_users", JSON.stringify(mergedUsers));
+  }
+
+  return mergedUsers;
 }
 
-// Push updated users array to Cloud DB endpoints with strict confirmation
+// Push updated master users array to ALL cloud DB endpoints to keep every server in sync
 async function pushToCloudDb(usersArray) {
-  let success = false;
+  let successCount = 0;
   const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
 
   for (const url of endpoints) {
@@ -52,21 +99,21 @@ async function pushToCloudDb(usersArray) {
         body: JSON.stringify(usersArray)
       });
       if (res.ok) {
-        success = true;
+        successCount++;
       }
     } catch (err) {
-      console.warn(`Failed to push to cloud DB endpoint ${url}:`, err);
+      console.warn(`Push to ${url} failed:`, err);
     }
   }
 
-  if (!success) {
+  if (successCount === 0) {
     throw new Error("Could not sync user to global Cloud Database. Please check your internet connection.");
   }
 }
 
 export async function getCloudUsers() {
   try {
-    return await fetchCloudUsersData();
+    return await fetchAndMergeAllUsers();
   } catch (err) {
     console.warn("Cloud DB fetch failed, using local storage fallback:", err);
   }
@@ -84,21 +131,9 @@ export async function getCloudUsers() {
 }
 
 export async function saveUserToCloud(newUser) {
-  let currentUsers = [];
-  try {
-    currentUsers = await fetchCloudUsersData();
-  } catch {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("spotify_users");
-        currentUsers = saved ? JSON.parse(saved) : [];
-      }
-    } catch {
-      currentUsers = [];
-    }
-  }
+  const currentUsers = await fetchAndMergeAllUsers();
 
-  // Prevent duplicate emails (case-insensitive)
+  // Remove existing user with same email (case-insensitive) if any
   const filtered = currentUsers.filter(
     (u) => u.gmail && u.gmail.toLowerCase() !== newUser.gmail.toLowerCase()
   );
@@ -112,7 +147,7 @@ export async function saveUserToCloud(newUser) {
 
   const updatedUsers = [...filtered, userToSave];
 
-  // Save to cloud DB FIRST to guarantee global availability
+  // Save master merged list to all cloud DBs
   await pushToCloudDb(updatedUsers);
 
   if (typeof localStorage !== "undefined") {
@@ -123,25 +158,18 @@ export async function saveUserToCloud(newUser) {
 }
 
 export async function deleteUserFromCloud(userId) {
-  let currentUsers = [];
-  try {
-    currentUsers = await fetchCloudUsersData();
-  } catch {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("spotify_users");
-        currentUsers = saved ? JSON.parse(saved) : [];
-      }
-    } catch {
-      currentUsers = [];
-    }
-  }
+  const currentUsers = await fetchAndMergeAllUsers();
 
-  const updatedUsers = currentUsers.filter(
-    (u) => u.id !== userId && (typeof userId !== "object" || u.id !== userId.id)
-  );
+  const targetId = typeof userId === "object" ? userId.id : userId;
+  const targetGmail = typeof userId === "object" ? (userId.gmail || "").toLowerCase() : "";
 
-  // Update cloud DB
+  const updatedUsers = currentUsers.filter((u) => {
+    if (u.id === targetId) return false;
+    if (targetGmail && u.gmail && u.gmail.toLowerCase() === targetGmail) return false;
+    return true;
+  });
+
+  // Update all cloud DB endpoints
   try {
     await pushToCloudDb(updatedUsers);
   } catch (err) {
@@ -156,7 +184,11 @@ export async function deleteUserFromCloud(userId) {
     if (current) {
       try {
         const parsedCurrent = JSON.parse(current);
-        if (parsedCurrent && parsedCurrent.id === userId) {
+        if (
+          parsedCurrent &&
+          (parsedCurrent.id === targetId ||
+            (targetGmail && parsedCurrent.gmail && parsedCurrent.gmail.toLowerCase() === targetGmail))
+        ) {
           localStorage.removeItem("spotify_current_user");
         }
       } catch {}
@@ -167,22 +199,12 @@ export async function deleteUserFromCloud(userId) {
 }
 
 export async function banUserInCloud(userId) {
-  let currentUsers = [];
-  try {
-    currentUsers = await fetchCloudUsersData();
-  } catch {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("spotify_users");
-        currentUsers = saved ? JSON.parse(saved) : [];
-      }
-    } catch {
-      currentUsers = [];
-    }
-  }
+  const currentUsers = await fetchAndMergeAllUsers();
+
+  const targetId = typeof userId === "object" ? userId.id : userId;
 
   const updatedUsers = currentUsers.map((u) => {
-    if (u.id === userId) {
+    if (u.id === targetId || (typeof userId === "object" && u.gmail && u.gmail.toLowerCase() === (userId.gmail || "").toLowerCase())) {
       return { ...u, isBanned: true };
     }
     return u;
@@ -198,22 +220,12 @@ export async function banUserInCloud(userId) {
 }
 
 export async function unbanUserInCloud(userId) {
-  let currentUsers = [];
-  try {
-    currentUsers = await fetchCloudUsersData();
-  } catch {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("spotify_users");
-        currentUsers = saved ? JSON.parse(saved) : [];
-      }
-    } catch {
-      currentUsers = [];
-    }
-  }
+  const currentUsers = await fetchAndMergeAllUsers();
+
+  const targetId = typeof userId === "object" ? userId.id : userId;
 
   const updatedUsers = currentUsers.map((u) => {
-    if (u.id === userId) {
+    if (u.id === targetId || (typeof userId === "object" && u.gmail && u.gmail.toLowerCase() === (userId.gmail || "").toLowerCase())) {
       return { ...u, isBanned: false, unbanRequestReason: "", unbanRequestDate: "" };
     }
     return u;
@@ -229,19 +241,7 @@ export async function unbanUserInCloud(userId) {
 }
 
 export async function submitUnbanRequestInCloud(userId, reason) {
-  let currentUsers = [];
-  try {
-    currentUsers = await fetchCloudUsersData();
-  } catch {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const saved = localStorage.getItem("spotify_users");
-        currentUsers = saved ? JSON.parse(saved) : [];
-      }
-    } catch {
-      currentUsers = [];
-    }
-  }
+  const currentUsers = await fetchAndMergeAllUsers();
 
   const nowFormatted = new Date().toLocaleString("en-IN", {
     day: "numeric",
@@ -252,9 +252,10 @@ export async function submitUnbanRequestInCloud(userId, reason) {
   });
 
   let updatedTargetUser = null;
+  const targetId = typeof userId === "object" ? userId.id : userId;
 
   const updatedUsers = currentUsers.map((u) => {
-    if (u.id === userId || (u.gmail && u.gmail.toLowerCase() === (userId.gmail || "").toLowerCase())) {
+    if (u.id === targetId || (u.gmail && u.gmail.toLowerCase() === (userId.gmail || "").toLowerCase())) {
       updatedTargetUser = {
         ...u,
         unbanRequestReason: reason,
@@ -280,7 +281,7 @@ export async function checkUserStatusInCloud(user) {
   }
 
   try {
-    const cloudUsers = await fetchCloudUsersData();
+    const cloudUsers = await fetchAndMergeAllUsers();
     const found = cloudUsers.find(
       (u) => u.id === user.id || (u.gmail && user.gmail && u.gmail.toLowerCase() === user.gmail.toLowerCase())
     );
