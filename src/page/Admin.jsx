@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getAllSongs, saveCustomSong, deleteCustomSong } from "../utils/songStorage";
-import { getCloudUsers, deleteUserFromCloud } from "../utils/cloudDb";
+import { getCloudUsers, deleteUserFromCloud, banUserInCloud, unbanUserInCloud } from "../utils/cloudDb";
 import "../css/admin.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -56,6 +56,20 @@ export default function Admin() {
   const handleDeleteUser = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user account?")) {
       const updated = await deleteUserFromCloud(userId);
+      setRegisteredUsers(updated);
+    }
+  };
+
+  const handleBanUser = async (userId) => {
+    if (window.confirm("Are you sure you want to BAN this user account?")) {
+      const updated = await banUserInCloud(userId);
+      setRegisteredUsers(updated);
+    }
+  };
+
+  const handleUnbanUser = async (userId) => {
+    if (window.confirm("Are you sure you want to UNBAN this user account?")) {
+      const updated = await unbanUserInCloud(userId);
       setRegisteredUsers(updated);
     }
   };
@@ -552,44 +566,159 @@ export default function Admin() {
             <div className="userdata-list-scroll">
               {registeredUsers.map((user) => {
                 const isPwdVisible = visiblePasswords[user.id];
+                const isBanned = Boolean(user.isBanned);
                 return (
-                  <div key={user.id} className="userdata-item">
-                    <div className="userdata-avatar">
-                      {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                    </div>
-                    <div className="userdata-info">
-                      <div className="userdata-name-row">
-                        <span className="userdata-fullname">{user.name}</span>
-                        <span className="userdata-username">@{user.username}</span>
+                  <div key={user.id} className={`userdata-item ${isBanned ? "banned-item" : ""}`} style={{ flexDirection: "column", alignItems: "stretch", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", width: "100%", gap: "12px" }}>
+                      <div className="userdata-avatar" style={{ backgroundColor: isBanned ? "#ff4d4d" : "#1DB954" }}>
+                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                       </div>
-                      <div className="userdata-meta-row">
-                        <span className="userdata-gmail">
-                          <i className="fa-solid fa-envelope"></i> {user.gmail}
-                        </span>
-                        <span className="userdata-password">
-                          <i className="fa-solid fa-lock"></i>{" "}
-                          {isPwdVisible ? user.password : "••••••••"}
+                      <div className="userdata-info" style={{ flex: 1 }}>
+                        <div className="userdata-name-row" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span className="userdata-fullname">{user.name}</span>
+                          <span className="userdata-username">@{user.username}</span>
+                          {isBanned ? (
+                            <span style={{
+                              backgroundColor: "#ff4d4d",
+                              color: "#fff",
+                              fontSize: "11px",
+                              fontWeight: "bold",
+                              padding: "2px 8px",
+                              borderRadius: "4px"
+                            }}>
+                              <i className="fa-solid fa-ban" style={{ marginRight: "4px" }}></i> BANNED
+                            </span>
+                          ) : (
+                            <span style={{
+                              backgroundColor: "#1e3a29",
+                              color: "#1DB954",
+                              fontSize: "11px",
+                              fontWeight: "bold",
+                              padding: "2px 8px",
+                              borderRadius: "4px"
+                            }}>
+                              <i className="fa-solid fa-circle-check" style={{ marginRight: "4px" }}></i> ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <div className="userdata-meta-row">
+                          <span className="userdata-gmail">
+                            <i className="fa-solid fa-envelope"></i> {user.gmail}
+                          </span>
+                          <span className="userdata-password">
+                            <i className="fa-solid fa-lock"></i>{" "}
+                            {isPwdVisible ? user.password : "••••••••"}
+                            <button
+                              type="button"
+                              className="pwd-toggle-btn"
+                              onClick={() => togglePasswordVisibility(user.id)}
+                              title={isPwdVisible ? "Hide password" : "Show password"}
+                            >
+                              <i className={`fa-solid ${isPwdVisible ? "fa-eye-slash" : "fa-eye"}`}></i>
+                            </button>
+                          </span>
+                          {user.createdAt && (
+                            <span className="userdata-date">• {user.createdAt}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {isBanned ? (
                           <button
-                            type="button"
-                            className="pwd-toggle-btn"
-                            onClick={() => togglePasswordVisibility(user.id)}
-                            title={isPwdVisible ? "Hide password" : "Show password"}
+                            className="userdata-unban-btn"
+                            title="Unban this user account"
+                            onClick={() => handleUnbanUser(user.id)}
+                            style={{
+                              backgroundColor: "#1DB954",
+                              color: "#fff",
+                              border: "none",
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
                           >
-                            <i className={`fa-solid ${isPwdVisible ? "fa-eye-slash" : "fa-eye"}`}></i>
+                            <i className="fa-solid fa-user-check"></i> Unban
                           </button>
-                        </span>
-                        {user.createdAt && (
-                          <span className="userdata-date">• {user.createdAt}</span>
+                        ) : (
+                          <button
+                            className="userdata-ban-btn"
+                            title="Ban this user account"
+                            onClick={() => handleBanUser(user.id)}
+                            style={{
+                              backgroundColor: "#ff4d4d",
+                              color: "#fff",
+                              border: "none",
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px"
+                            }}
+                          >
+                            <i className="fa-solid fa-user-slash"></i> Ban
+                          </button>
                         )}
+
+                        <button
+                          className="userdata-delete-btn"
+                          title="Delete user account permanently"
+                          onClick={() => handleDeleteUser(user.id)}
+                        >
+                          <i className="fa-regular fa-trash-can"></i>
+                        </button>
                       </div>
                     </div>
-                    <button
-                      className="userdata-delete-btn"
-                      title="Delete user account"
-                      onClick={() => handleDeleteUser(user.id)}
-                    >
-                      <i className="fa-regular fa-trash-can"></i>
-                    </button>
+
+                    {/* Show Unban Reason Box if User Submitted an Appeal */}
+                    {isBanned && user.unbanRequestReason && (
+                      <div style={{
+                        backgroundColor: "rgba(255, 77, 77, 0.1)",
+                        border: "1px solid #ff4d4d",
+                        borderRadius: "8px",
+                        padding: "10px 14px",
+                        marginTop: "4px",
+                        width: "100%"
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "12px", color: "#ff6b6b", fontWeight: "bold" }}>
+                            <i className="fa-solid fa-envelope-open-text" style={{ marginRight: "6px" }}></i>
+                            Unban Request Reason from @{user.username}:
+                          </span>
+                          {user.unbanRequestDate && (
+                            <span style={{ fontSize: "11px", color: "#aaa" }}>
+                              {user.unbanRequestDate}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ color: "#fff", fontSize: "13px", fontStyle: "italic", margin: "4px 0 8px 0" }}>
+                          "{user.unbanRequestReason}"
+                        </p>
+                        <button
+                          onClick={() => handleUnbanUser(user.id)}
+                          style={{
+                            backgroundColor: "#1DB954",
+                            color: "#fff",
+                            border: "none",
+                            padding: "4px 10px",
+                            borderRadius: "4px",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <i className="fa-solid fa-check" style={{ marginRight: "4px" }}></i> Approve & Unban User
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

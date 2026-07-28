@@ -7,11 +7,13 @@ import CreatePlaylistModal from "./component/CreatePlaylistModal";
 import AddSongsModal from "./component/AddSongsModal";
 import RenamePlaylistModal from "./component/RenamePlaylistModal";
 import AuthModal from "./component/AuthModal";
+import BannedModal from "./component/BannedModal";
 import '../src/css/app.css';
 import '../src/css/mobilenav.css';
 import '../src/css/playlist.css';
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Admin from "./page/Admin";
+import { checkUserStatusInCloud } from "./utils/cloudDb";
 
 export default function App() {
   const [currentSong, setCurrentSong] = useState(null);
@@ -51,6 +53,45 @@ export default function App() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [addSongsTargetPlaylist, setAddSongsTargetPlaylist] = useState(null);
   const [renameTargetPlaylist, setRenameTargetPlaylist] = useState(null);
+
+  // Auto-verify if the logged-in user still exists in Cloud DB or is Banned by Admin
+  useEffect(() => {
+    if (!currentUser || currentUser.isAdmin) return;
+
+    let isMounted = true;
+
+    const verifySession = async () => {
+      const { exists, userData } = await checkUserStatusInCloud(currentUser);
+
+      if (!isMounted) return;
+
+      if (!exists) {
+        // User account deleted by Admin -> Logout & clear session completely
+        localStorage.removeItem("spotify_current_user");
+        setCurrentUser(null);
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      // Update user state if ban status or unban reason changed
+      if (userData && (
+        userData.isBanned !== currentUser.isBanned ||
+        userData.unbanRequestReason !== currentUser.unbanRequestReason
+      )) {
+        localStorage.setItem("spotify_current_user", JSON.stringify(userData));
+        setCurrentUser(userData);
+      }
+    };
+
+    verifySession();
+    // Real-time sync interval (every 3 seconds) across all devices & mobile phones
+    const interval = setInterval(verifySession, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [currentUser]);
 
   const handleLogout = () => {
     localStorage.removeItem("spotify_current_user");
@@ -168,9 +209,21 @@ export default function App() {
 
                 <MobileNav onToggleSidebar={toggleSidebar} />
 
+                {/* Banned Modal for Banned Users */}
+                {currentUser && currentUser.isBanned && (
+                  <BannedModal 
+                    currentUser={currentUser} 
+                    onLogout={handleLogout}
+                    onUserUpdated={(updatedUser) => {
+                      setCurrentUser(updatedUser);
+                      localStorage.setItem("spotify_current_user", JSON.stringify(updatedUser));
+                    }}
+                  />
+                )}
+
                 {/* Modals */}
                 <AuthModal 
-                  isOpen={isAuthModalOpen}
+                  isOpen={isAuthModalOpen && (!currentUser || !currentUser.isBanned)}
                   onClose={() => setIsAuthModalOpen(false)}
                   onLoginSuccess={(user) => setCurrentUser(user)}
                 />
@@ -203,3 +256,4 @@ export default function App() {
     </div>
   );
 }
+
