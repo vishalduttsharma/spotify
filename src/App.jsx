@@ -205,9 +205,10 @@ export default function App() {
                   onLogout={handleLogout}
                 />
 
-                <Musicplayer currentSong={currentSong} />
-
-                <MobileNav onToggleSidebar={toggleSidebar} />
+                <MobileNav 
+                  onToggleSidebar={toggleSidebar} 
+                  onResetPlaylist={() => setActivePlaylistId(null)}
+                />
 
                 {/* Banned Modal for Banned Users */}
                 {currentUser && currentUser.isBanned && (

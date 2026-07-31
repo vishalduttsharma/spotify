@@ -286,15 +286,20 @@ export default function Maincontent({
       ) : (
         /* Home Catalog View */
         <div className="music-card">
-          <div className="top-number-of-songs">
-            <h2 className="section-title">Recently Played</h2>
-            <div className="recently-played-grid">
-              <Songcard />
+          {/* Only show Recently Played when NOT searching */}
+          {!query && (
+            <div className="top-number-of-songs">
+              <h2 className="section-title">Recently Played</h2>
+              <div className="recently-played-grid">
+                <Songcard />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="songs-list">
-            <h2 className="section-title">Trending Now Near You</h2>
+            <h2 className="section-title">
+              {query ? `Search Results (${filteredCatalogSongs.length})` : "Trending Now Near You"}
+            </h2>
             <div className="songs-list-container">
               {filteredCatalogSongs.map((iteam, index) => {
                 return (
@@ -315,6 +320,24 @@ export default function Maincontent({
                 <div className="no-songs-found">
                   <i className="fa-solid fa-compact-disc"></i>
                   <p>No tracks found matching "{searchFilter}"</p>
+                  <button 
+                    type="button" 
+                    className="clear-search-btn-large"
+                    onClick={() => setSearchFilter("")}
+                    style={{
+                      marginTop: "12px",
+                      padding: "8px 18px",
+                      borderRadius: "20px",
+                      backgroundColor: "#1DB954",
+                      color: "black",
+                      fontWeight: "700",
+                      fontSize: "13px",
+                      border: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Clear Search
+                  </button>
                 </div>
               )}
             </div>
@@ -324,3 +347,4 @@ export default function Maincontent({
     </div>
   );
 }
+

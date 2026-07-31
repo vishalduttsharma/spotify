@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import "../css/mobilenav.css";
 
-export default function MobileNav({ onToggleSidebar }) {
+export default function MobileNav({ onToggleSidebar, onResetPlaylist }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -9,6 +9,7 @@ export default function MobileNav({ onToggleSidebar }) {
   const isAdmin = location.pathname === "/admin";
 
   const handleHomeClick = () => {
+    if (onResetPlaylist) onResetPlaylist();
     if (!isHome) {
       navigate("/");
     } else {
@@ -16,6 +17,17 @@ export default function MobileNav({ onToggleSidebar }) {
       const mainEl = document.getElementById("maincontent");
       if (mainEl) mainEl.scrollTo({ top: 0, behavior: "smooth" });
     }
+  };
+
+  const handleSearchClick = () => {
+    handleHomeClick();
+    setTimeout(() => {
+      const searchInput = document.querySelector(".search-input-main");
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
   };
 
   return (
@@ -30,13 +42,7 @@ export default function MobileNav({ onToggleSidebar }) {
 
       <button 
         className="mobile-nav-item" 
-        onClick={() => {
-          handleHomeClick();
-          setTimeout(() => {
-            const searchInput = document.querySelector(".search-input-main");
-            if (searchInput) searchInput.focus();
-          }, 100);
-        }}
+        onClick={handleSearchClick}
       >
         <i className="fa-solid fa-magnifying-glass"></i>
         <span>Search</span>
@@ -60,3 +66,4 @@ export default function MobileNav({ onToggleSidebar }) {
     </nav>
   );
 }
+
