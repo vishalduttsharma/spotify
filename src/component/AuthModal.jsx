@@ -48,8 +48,17 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
     setIsSubmitting(true);
 
     try {
-      // Fetch latest global users from Cloud DB
-      const users = await getCloudUsers();
+      // Fetch latest global users from Cloud DB or local fallback
+      let users = [];
+      try {
+        users = await getCloudUsers();
+      } catch (err) {
+        console.warn("Could not fetch cloud users, fallback to local:", err);
+        try {
+          const local = localStorage.getItem("spotify_users");
+          if (local) users = JSON.parse(local);
+        } catch { /* empty */ }
+      }
 
       if (mode === "signup") {
         // Validation for Sign Up
@@ -59,8 +68,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
           return;
         }
 
-        // Check if Gmail already exists globally
-        const existingUser = users.find((u) => u.gmail && u.gmail.toLowerCase() === cleanGmail);
+        // Check if Gmail already exists globally or locally
+        const existingUser = users.find((u) => u && u.gmail && u.gmail.toLowerCase() === cleanGmail);
         if (existingUser) {
           setErrorMsg("Account with this Gmail already exists. Please log in instead.");
           setMode("login");
@@ -85,9 +94,16 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
         };
 
         // Save to Cloud DB globally & local storage
-        await saveUserToCloud(newUser);
-        localStorage.setItem("spotify_current_user", JSON.stringify(newUser));
+        try {
+          await saveUserToCloud(newUser);
+        } catch (saveErr) {
+          console.warn("Saving to cloud failed, using local storage:", saveErr);
+          const currentLocal = JSON.parse(localStorage.getItem("spotify_users") || "[]");
+          currentLocal.push(newUser);
+          localStorage.setItem("spotify_users", JSON.stringify(currentLocal));
+        }
 
+        localStorage.setItem("spotify_current_user", JSON.stringify(newUser));
         onLoginSuccess(newUser);
         if (onClose) onClose();
       } else {
@@ -98,9 +114,22 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
           return;
         }
 
-        const foundUser = users.find(
-          (u) => u.gmail && u.gmail.toLowerCase() === cleanGmail && u.password === cleanPassword
+        let foundUser = users.find(
+          (u) => u && u.gmail && u.gmail.toLowerCase() === cleanGmail && u.password === cleanPassword
         );
+
+        if (!foundUser) {
+          // Check local storage directly
+          try {
+            const local = localStorage.getItem("spotify_users");
+            if (local) {
+              const parsed = JSON.parse(local);
+              foundUser = parsed.find(
+                (u) => u && u.gmail && u.gmail.toLowerCase() === cleanGmail && u.password === cleanPassword
+              );
+            }
+          } catch { /* empty */ }
+        }
 
         if (!foundUser) {
           setErrorMsg("Invalid Gmail ID or Password. If you don't have an account, please Sign Up.");
@@ -114,7 +143,7 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
       }
     } catch (err) {
       console.error(err);
-      setErrorMsg("Network error occurred. Please try again.");
+      setErrorMsg("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

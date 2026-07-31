@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Songcard from "../component/Songcard";
 import Songlist from "../component/Songlist";
-import { getAllSongs } from "../utils/songStorage";
+import { getAllSongs, fetchCloudSongs } from "../utils/songStorage";
 import "../css/maincontent.css";
 import '../css/musicplayer.css';
 import '../css/playlist.css';
@@ -23,23 +23,54 @@ export default function Maincontent({
 }) {
   const [searchFilter, setSearchFilter] = useState("");
   const [playlistSearchQuery, setPlaylistSearchQuery] = useState("");
+  const [allSongs, setAllSongs] = useState(() => getAllSongs());
 
-  const allSongs = getAllSongs();
+  useEffect(() => {
+    let isMounted = true;
+    const syncSongs = async () => {
+      await fetchCloudSongs();
+      if (isMounted) {
+        setAllSongs(getAllSongs());
+      }
+    };
+    syncSongs();
+    const interval = setInterval(syncSongs, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
-  const filteredCatalogSongs = allSongs.filter(song => 
-    song.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-    song.singer.toLowerCase().includes(searchFilter.toLowerCase())
-  );
+  const query = searchFilter.trim().toLowerCase();
+
+  const filteredCatalogSongs = allSongs.filter(song => {
+    if (!query) return true;
+    const name = (song.name || "").toLowerCase();
+    const singer = (song.singer || "").toLowerCase();
+
+    if (name.includes(query) || singer.includes(query)) return true;
+
+    const words = query.split(/\s+/).filter(Boolean);
+    return words.every(word => name.includes(word) || singer.includes(word));
+  });
 
   // If a playlist is active, filter its songs
   const playlistSongs = activePlaylist
     ? allSongs.filter(s => activePlaylist.songIds.includes(s.id))
     : [];
 
-  const filteredPlaylistSongs = playlistSongs.filter(song =>
-    song.name.toLowerCase().includes(playlistSearchQuery.toLowerCase()) ||
-    song.singer.toLowerCase().includes(playlistSearchQuery.toLowerCase())
-  );
+  const playlistQuery = playlistSearchQuery.trim().toLowerCase();
+
+  const filteredPlaylistSongs = playlistSongs.filter(song => {
+    if (!playlistQuery) return true;
+    const name = (song.name || "").toLowerCase();
+    const singer = (song.singer || "").toLowerCase();
+
+    if (name.includes(playlistQuery) || singer.includes(playlistQuery)) return true;
+
+    const words = playlistQuery.split(/\s+/).filter(Boolean);
+    return words.every(word => name.includes(word) || singer.includes(word));
+  });
 
   return (
     <div id="maincontent">
@@ -76,8 +107,20 @@ export default function Maincontent({
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
             />
+            {searchFilter && (
+              <button 
+                type="button" 
+                className="clear-search-btn" 
+                onClick={() => setSearchFilter("")}
+                style={{ background: "none", border: "none", color: "#b3b3b3", cursor: "pointer", padding: "0 8px", fontSize: "14px" }}
+                title="Clear search"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            )}
           </div>
         )}
+
 
         {/* When inside Playlist View, show playlist name in nav header */}
         {activePlaylist && (
