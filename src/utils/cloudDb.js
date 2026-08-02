@@ -1,10 +1,51 @@
 // Global Cloud Database endpoints for syncing registered users across all devices, mobile phones & Vercel
-const PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fb6eb-ce15-7319-8207-04f197617ee9";
-const SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fb6eb-d0c6-74eb-b556-ce669b00aee7";
-const TERTIARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fb6eb-d288-7367-8a3f-0d85f8264fce";
+const DEFAULT_PRIMARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fc365-fec5-7bd7-9692-2f0eab766793";
+const DEFAULT_SECONDARY_CLOUD_DB = "https://jsonblob.com/api/jsonBlob/019fc366-074b-7887-b017-9a640c5d670d";
+
+function getActiveEndpoints() {
+  const list = [DEFAULT_PRIMARY_CLOUD_DB, DEFAULT_SECONDARY_CLOUD_DB];
+  try {
+    if (typeof localStorage !== "undefined") {
+      const dynamicUrl = localStorage.getItem("spotify_dynamic_user_db");
+      if (dynamicUrl && !list.includes(dynamicUrl)) {
+        list.push(dynamicUrl);
+      }
+    }
+  } catch { /* empty */ }
+  return list;
+}
+
+// Auto-create a fresh cloud blob if all endpoints return 404
+async function createNewCloudBlob(initialUsers = []) {
+  try {
+    const res = await fetch("https://jsonblob.com/api/jsonBlob", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(initialUsers)
+    });
+    if (res.ok) {
+      const location = res.headers.get("location");
+      if (location) {
+        const fullUrl = location.startsWith("http") ? location : `https://jsonblob.com${location}`;
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("spotify_dynamic_user_db", fullUrl);
+        }
+        return fullUrl;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not create dynamic cloud blob:", err);
+  }
+  return null;
+}
 
 async function fetchAndMergeAllUsers() {
-  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
+  const endpoints = getActiveEndpoints();
+  let fetchedAny = false;
+  const cloudUserMap = new Map();
 
   for (const url of endpoints) {
     try {
@@ -20,29 +61,10 @@ async function fetchAndMergeAllUsers() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          if (typeof localStorage !== "undefined") {
-            // Merge with local users to ensure no offline signup is lost
-            let localUsers = [];
-            try {
-              const saved = localStorage.getItem("spotify_users");
-              if (saved) localUsers = JSON.parse(saved);
-            } catch { /* empty */ }
-
-            const userMap = new Map();
-            data.forEach((u) => {
-              if (u && u.gmail) userMap.set(u.gmail.toLowerCase(), u);
-            });
-            localUsers.forEach((u) => {
-              if (u && u.gmail && !userMap.has(u.gmail.toLowerCase())) {
-                userMap.set(u.gmail.toLowerCase(), u);
-              }
-            });
-
-            const merged = Array.from(userMap.values());
-            localStorage.setItem("spotify_users", JSON.stringify(merged));
-            return merged;
-          }
-          return data;
+          fetchedAny = true;
+          data.forEach((u) => {
+            if (u && u.gmail) cloudUserMap.set(u.gmail.toLowerCase(), u);
+          });
         }
       }
     } catch (err) {
@@ -50,26 +72,53 @@ async function fetchAndMergeAllUsers() {
     }
   }
 
-  // Offline / local storage fallback
+  // Retrieve local users
+  let localUsers = [];
   try {
     if (typeof localStorage !== "undefined") {
-      const local = localStorage.getItem("spotify_users");
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
+      const saved = localStorage.getItem("spotify_users");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) localUsers = parsed;
       }
     }
   } catch { /* empty */ }
 
-  return [];
+  // Merge cloud users with local users (preserving cloud status changes like ban/unban)
+  localUsers.forEach((lu) => {
+    if (lu && lu.gmail) {
+      const gmailKey = lu.gmail.toLowerCase();
+      if (!cloudUserMap.has(gmailKey)) {
+        cloudUserMap.set(gmailKey, lu);
+      }
+    }
+  });
+
+  const merged = Array.from(cloudUserMap.values());
+
+  // Save merged array back to local storage
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(merged));
+    }
+  } catch { /* empty */ }
+
+  // If fetching failed from all existing endpoints, auto-create a new cloud blob and push
+  if (!fetchedAny && merged.length > 0) {
+    createNewCloudBlob(merged).then((newUrl) => {
+      if (newUrl) {
+        pushToCloudDb(merged);
+      }
+    });
+  }
+
+  return merged;
 }
 
 // Push updated master users array to cloud DB endpoints
 async function pushToCloudDb(usersArray) {
   let successCount = 0;
-  const endpoints = [PRIMARY_CLOUD_DB, SECONDARY_CLOUD_DB, TERTIARY_CLOUD_DB];
+  const endpoints = getActiveEndpoints();
 
   for (const url of endpoints) {
     try {
@@ -90,12 +139,22 @@ async function pushToCloudDb(usersArray) {
   }
 
   // Always persist locally to prevent lost data even if network fails
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(usersArray));
-  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(usersArray));
+    }
+  } catch { /* empty */ }
 
   if (successCount === 0) {
-    console.warn("Could not sync user to global Cloud Database endpoints right now. Saved locally.");
+    console.warn("Endpoints offline, creating new cloud blob...");
+    const newUrl = await createNewCloudBlob(usersArray);
+    if (newUrl) {
+      fetch(newUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(usersArray)
+      }).catch(() => {});
+    }
   }
 }
 
@@ -143,9 +202,11 @@ export async function saveUserToCloud(newUser) {
   const updatedUsers = [...filtered, userToSave];
 
   // Save to local storage immediately
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
+    }
+  } catch { /* empty */ }
 
   // Attempt Cloud DB sync asynchronously / safely
   try {
@@ -169,23 +230,25 @@ export async function deleteUserFromCloud(userId) {
     return true;
   });
 
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
 
-    const current = localStorage.getItem("spotify_current_user");
-    if (current) {
-      try {
-        const parsedCurrent = JSON.parse(current);
-        if (
-          parsedCurrent &&
-          (parsedCurrent.id === targetId ||
-            (targetGmail && parsedCurrent.gmail && parsedCurrent.gmail.toLowerCase() === targetGmail))
-        ) {
-          localStorage.removeItem("spotify_current_user");
-        }
-      } catch { /* empty */ }
+      const current = localStorage.getItem("spotify_current_user");
+      if (current) {
+        try {
+          const parsedCurrent = JSON.parse(current);
+          if (
+            parsedCurrent &&
+            (parsedCurrent.id === targetId ||
+              (targetGmail && parsedCurrent.gmail && parsedCurrent.gmail.toLowerCase() === targetGmail))
+          ) {
+            localStorage.removeItem("spotify_current_user");
+          }
+        } catch { /* empty */ }
+      }
     }
-  }
+  } catch { /* empty */ }
 
   try {
     await pushToCloudDb(updatedUsers);
@@ -198,7 +261,6 @@ export async function deleteUserFromCloud(userId) {
 
 export async function banUserInCloud(userId) {
   const currentUsers = await fetchAndMergeAllUsers();
-
   const targetId = typeof userId === "object" ? userId.id : userId;
 
   const updatedUsers = currentUsers.map((u) => {
@@ -208,9 +270,11 @@ export async function banUserInCloud(userId) {
     return u;
   });
 
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
+    }
+  } catch { /* empty */ }
 
   try {
     await pushToCloudDb(updatedUsers);
@@ -223,7 +287,6 @@ export async function banUserInCloud(userId) {
 
 export async function unbanUserInCloud(userId) {
   const currentUsers = await fetchAndMergeAllUsers();
-
   const targetId = typeof userId === "object" ? userId.id : userId;
 
   const updatedUsers = currentUsers.map((u) => {
@@ -233,9 +296,11 @@ export async function unbanUserInCloud(userId) {
     return u;
   });
 
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
+    }
+  } catch { /* empty */ }
 
   try {
     await pushToCloudDb(updatedUsers);
@@ -272,9 +337,11 @@ export async function submitUnbanRequestInCloud(userId, reason) {
     return u;
   });
 
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
-  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("spotify_users", JSON.stringify(updatedUsers));
+    }
+  } catch { /* empty */ }
 
   try {
     await pushToCloudDb(updatedUsers);
@@ -297,7 +364,6 @@ export async function checkUserStatusInCloud(user) {
     );
 
     if (!found) {
-      // Check local storage before declaring account non-existent
       if (typeof localStorage !== "undefined") {
         const local = localStorage.getItem("spotify_users");
         if (local) {
@@ -322,7 +388,5 @@ export async function checkUserStatusInCloud(user) {
     console.warn("Could not verify user status from cloud DB:", err);
   }
 
-  // Fallback to local
   return { exists: true, isBanned: Boolean(user.isBanned), userData: user };
 }
-

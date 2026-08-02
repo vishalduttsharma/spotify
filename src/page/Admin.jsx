@@ -43,10 +43,22 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    refreshUsers();
-    // Auto-refresh users every 4 seconds to catch live signups from mobile devices & Vercel
-    const interval = setInterval(refreshUsers, 4000);
-    return () => clearInterval(interval);
+    let isMounted = true;
+    const fetchLiveUsers = async () => {
+      try {
+        const cloudUsers = await getCloudUsers();
+        if (isMounted) setRegisteredUsers(cloudUsers);
+      } catch (err) {
+        console.error("Failed to fetch cloud users:", err);
+      }
+    };
+
+    fetchLiveUsers();
+    const interval = setInterval(fetchLiveUsers, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const togglePasswordVisibility = (userId) => {
@@ -162,14 +174,6 @@ export default function Admin() {
     setAudioFile(null);
   };
 
-  const readFileAsDataURL = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -214,20 +218,17 @@ export default function Admin() {
       }
       throw new Error("Backend server not responding");
     } catch {
-      // Vercel / Client-side Fallback using Data URLs
+      // Vercel / Client-side Fallback using IndexedDB & Cloud Sync
       try {
-        const imgUrl = await readFileAsDataURL(imageFile);
-        const audioUrl = await readFileAsDataURL(audioFile);
-
         const newSong = {
           id: Date.now(),
           name: songName,
           singer: singerName,
-          img: imgUrl,
-          audio: audioUrl
+          img: `idb:${Date.now()}`,
+          audio: `idb:${Date.now()}`
         };
 
-        const updated = saveCustomSong(newSong);
+        const updated = await saveCustomSong(newSong, audioFile, imageFile);
         setSongs(updated);
 
         setMessage("Track published successfully to Spotify library!");

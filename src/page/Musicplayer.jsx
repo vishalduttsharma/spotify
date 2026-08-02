@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { resolveSongMedia } from "../utils/songStorage";
 import "../css/musicplayer.css";
 
 export default function Musicplayer({ currentSong }) {
   const audioRef = useRef(null);
+  const [activeSong, setActiveSong] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -10,21 +12,49 @@ export default function Musicplayer({ currentSong }) {
   const [isLiked, setIsLiked] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [prevVolume, setPrevVolume] = useState(0.8);
+  const [playbackError, setPlaybackError] = useState(null);
 
-  // Sync play state when currentSong changes
+  // Resolve IndexedDB or remote URLs whenever currentSong changes
   useEffect(() => {
-    if (audioRef.current && currentSong) {
-      audioRef.current.load();
-      audioRef.current.play()
-        .then(() => {
-          setIsPlaying(true);
-        })
-        .catch((err) => {
-          console.log("Playback interrupted or autoplay blocked:", err);
-          setIsPlaying(false);
-        });
+    let isMounted = true;
+
+    if (!currentSong) {
+      Promise.resolve().then(() => {
+        if (isMounted) setActiveSong(null);
+      });
+      return;
     }
+
+    resolveSongMedia(currentSong).then((resolved) => {
+      if (isMounted) {
+        setPlaybackError(null);
+        setActiveSong(resolved);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentSong]);
+
+  // Sync play state when activeSong updates
+  useEffect(() => {
+    if (audioRef.current && activeSong) {
+      audioRef.current.load();
+      const promise = audioRef.current.play();
+      if (promise !== undefined) {
+        promise
+          .then(() => {
+            setIsPlaying(true);
+            setPlaybackError(null);
+          })
+          .catch((err) => {
+            console.warn("Playback interrupted or autoplay restricted by browser:", err);
+            setIsPlaying(false);
+          });
+      }
+    }
+  }, [activeSong]);
 
   // Play / Pause toggle
   const togglePlay = () => {
@@ -33,11 +63,19 @@ export default function Musicplayer({ currentSong }) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play()
-        .then(() => {
-          setIsPlaying(true);
-        })
-        .catch((err) => console.log(err));
+      const promise = audioRef.current.play();
+      if (promise !== undefined) {
+        promise
+          .then(() => {
+            setIsPlaying(true);
+            setPlaybackError(null);
+          })
+          .catch((err) => {
+            console.error("Audio playback error:", err);
+            setPlaybackError("Click Play to start audio.");
+            setIsPlaying(false);
+          });
+      }
     }
   };
 
@@ -59,6 +97,13 @@ export default function Musicplayer({ currentSong }) {
   const handleSongEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  // Handle Audio Error
+  const handleAudioError = (e) => {
+    console.warn("Audio element encountered an error loading source:", e);
+    setIsPlaying(false);
+    setPlaybackError("Unable to load track audio.");
   };
 
   // Seek handler
@@ -106,12 +151,14 @@ export default function Musicplayer({ currentSong }) {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  const coverUrl = currentSong 
-    ? (currentSong.img || `/songsimg/${currentSong.id + 1}.png`) 
+  const displaySong = activeSong || currentSong;
+
+  const coverUrl = displaySong 
+    ? (displaySong.img || `/songsimg/${displaySong.id + 1}.png`) 
     : "/songsimg/1.png";
-  const songName = currentSong ? currentSong.name : "Kesariya";
-  const songSinger = currentSong ? currentSong.singer : "Arijit Singh";
-  const audioSrc = currentSong ? currentSong.audio : "/songs/1.mp3";
+  const songName = displaySong ? displaySong.name : "Kesariya";
+  const songSinger = displaySong ? displaySong.singer : "Arijit Singh";
+  const audioSrc = displaySong ? displaySong.audio : "/songs/1.mp3";
 
   const progressPercent = (currentTime / (duration || 100)) * 100;
 
@@ -131,17 +178,30 @@ export default function Musicplayer({ currentSong }) {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleSongEnded}
+        onError={handleAudioError}
       />
 
       <div className="player-content">
         {/* Left Section: Song Details with Cover Image */}
         <div className="player-song-details">
           <div className="player-cover">
-            <img src={coverUrl} alt="cover" />
+            <img 
+              src={coverUrl} 
+              alt="cover" 
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "/songsimg/1.png";
+              }}
+            />
           </div>
           <div className="player-info">
             <div className="player-song-name">{songName}</div>
             <div className="player-song-singer">{songSinger}</div>
+            {playbackError && (
+              <div style={{ fontSize: "10px", color: "#ff4d4d", marginTop: "2px" }}>
+                {playbackError}
+              </div>
+            )}
           </div>
           <button 
             className={`like-btn ${isLiked ? 'liked' : ''}`} 

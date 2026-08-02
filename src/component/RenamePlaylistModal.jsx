@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "../css/playlist.css";
 
 export default function RenamePlaylistModal({ isOpen, onClose, playlist, onRenamePlaylist }) {
-  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [newPlaylistName, setNewPlaylistName] = useState(() => playlist?.name || "");
+  const [prevPlaylistId, setPrevPlaylistId] = useState(playlist?.id);
 
-  useEffect(() => {
-    if (playlist) {
-      setNewPlaylistName(playlist.name);
-    }
-  }, [playlist]);
+  if (playlist?.id !== prevPlaylistId) {
+    setPrevPlaylistId(playlist?.id);
+    setNewPlaylistName(playlist?.name || "");
+  }
 
   if (!isOpen || !playlist) return null;
 

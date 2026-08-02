@@ -205,6 +205,8 @@ export default function App() {
                   onLogout={handleLogout}
                 />
 
+                <Musicplayer currentSong={currentSong} />
+
                 <MobileNav 
                   onToggleSidebar={toggleSidebar} 
                   onResetPlaylist={() => setActivePlaylistId(null)}

@@ -331,8 +331,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
           )}
 
           {/* Submit Button */}
-          <button type="submit" className={`auth-submit-main-btn ${mode === "admin" ? "admin-submit" : ""}`}>
-            {mode === "signup" ? (
+          <button type="submit" className={`auth-submit-main-btn ${mode === "admin" ? "admin-submit" : ""}`} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <span>
+                <i className="fa-solid fa-circle-notch fa-spin" style={{ marginRight: "8px" }}></i> Processing...
+              </span>
+            ) : mode === "signup" ? (
               <>
                 <i className="fa-solid fa-user-plus" style={{ marginRight: "8px" }}></i> Create Account
               </>
