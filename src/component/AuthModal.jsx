@@ -137,6 +137,11 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, canClose = 
           return;
         }
 
+        // Sync user to cloud DB & local server
+        try {
+          await saveUserToCloud(foundUser);
+        } catch { /* empty */ }
+
         localStorage.setItem("spotify_current_user", JSON.stringify(foundUser));
         onLoginSuccess(foundUser);
         if (onClose) onClose();

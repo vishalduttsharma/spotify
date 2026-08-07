@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Songcard from "../component/Songcard";
 import Songlist from "../component/Songlist";
-import { getAllSongs, fetchCloudSongs } from "../utils/songStorage";
+import { getAllSongs, fetchCloudSongs, resolveAllSongsMedia } from "../utils/songStorage";
 import "../css/maincontent.css";
 import '../css/musicplayer.css';
 import '../css/playlist.css';
@@ -23,14 +23,15 @@ export default function Maincontent({
 }) {
   const [searchFilter, setSearchFilter] = useState("");
   const [playlistSearchQuery, setPlaylistSearchQuery] = useState("");
-  const [allSongs, setAllSongs] = useState(() => getAllSongs());
+  const [allSongs, setAllSongs] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
     const syncSongs = async () => {
-      await fetchCloudSongs();
+      const cloudSongs = await fetchCloudSongs();
+      const resolved = await resolveAllSongsMedia(cloudSongs);
       if (isMounted) {
-        setAllSongs(getAllSongs());
+        setAllSongs(resolved);
       }
     };
     syncSongs();

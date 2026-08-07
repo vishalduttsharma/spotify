@@ -1,14 +1,24 @@
-import { useState } from "react";
-import { getAllSongs } from "../utils/songStorage";
+import { useState, useEffect } from "react";
+import { getAllSongs, resolveAllSongsMedia } from "../utils/songStorage";
 import "../css/playlist.css";
 
 export default function AddSongsModal({ isOpen, onClose, playlist, onAddSongs }) {
   const [selectedSongIds, setSelectedSongIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [songsData, setSongsData] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const loadSongs = async () => {
+        const raw = getAllSongs();
+        const resolved = await resolveAllSongsMedia(raw);
+        setSongsData(resolved);
+      };
+      loadSongs();
+    }
+  }, [isOpen]);
 
   if (!isOpen || !playlist) return null;
-
-  const songsData = getAllSongs();
 
   // Filter songs that are NOT already in the playlist
   const availableSongs = songsData.filter(

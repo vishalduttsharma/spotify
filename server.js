@@ -26,6 +26,127 @@ if (!fs.existsSync(songsDir)) {
   fs.mkdirSync(songsDir, { recursive: true });
 }
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/songsimg', express.static(songsImgDir));
+app.use('/songs', express.static(songsDir));
+
+// Helper for users JSON path
+const usersJsonPath = path.join(__dirname, 'src/page/users.json');
+
+function readUsersFromFile() {
+  if (fs.existsSync(usersJsonPath)) {
+    try {
+      const data = fs.readFileSync(usersJsonPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function writeUsersToFile(users) {
+  try {
+    fs.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (err) {
+    console.error("Failed to write users to file:", err);
+  }
+}
+
+// User Routes
+app.get('/api/users', (req, res) => {
+  try {
+    const users = readUsersFromFile();
+    res.status(200).json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error reading users' });
+  }
+});
+
+app.post('/api/users/signup', (req, res) => {
+  try {
+    const newUser = req.body;
+    if (!newUser || !newUser.gmail || !newUser.password) {
+      return res.status(400).json({ error: 'Gmail and password are required' });
+    }
+    const users = readUsersFromFile();
+    const cleanGmail = newUser.gmail.trim().toLowerCase();
+
+    // Check if user already exists
+    const filtered = users.filter(u => u && u.gmail && u.gmail.toLowerCase() !== cleanGmail);
+    const userToSave = {
+      isBanned: false,
+      unbanRequestReason: "",
+      unbanRequestDate: "",
+      ...newUser,
+      gmail: cleanGmail
+    };
+    filtered.push(userToSave);
+    writeUsersToFile(filtered);
+    res.status(200).json({ message: 'User signed up successfully', user: userToSave, users: filtered });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error during signup' });
+  }
+});
+
+app.post('/api/users/login', (req, res) => {
+  try {
+    const { gmail, password } = req.body;
+    const cleanGmail = (gmail || "").trim().toLowerCase();
+    const users = readUsersFromFile();
+    const found = users.find(u => u && u.gmail && u.gmail.toLowerCase() === cleanGmail && u.password === password);
+    if (!found) {
+      return res.status(401).json({ error: 'Invalid Gmail or password' });
+    }
+    res.status(200).json({ message: 'Login successful', user: found });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+app.put('/api/users/ban/:id', (req, res) => {
+  try {
+    const userId = req.params.id;
+    const users = readUsersFromFile();
+    const updated = users.map(u => u.id === userId ? { ...u, isBanned: true } : u);
+    writeUsersToFile(updated);
+    res.status(200).json({ message: 'User banned', users: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error banning user' });
+  }
+});
+
+app.put('/api/users/unban/:id', (req, res) => {
+  try {
+    const userId = req.params.id;
+    const users = readUsersFromFile();
+    const updated = users.map(u => u.id === userId ? { ...u, isBanned: false, unbanRequestReason: "", unbanRequestDate: "" } : u);
+    writeUsersToFile(updated);
+    res.status(200).json({ message: 'User unbanned', users: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error unbanning user' });
+  }
+});
+
+app.delete('/api/users/:id', (req, res) => {
+  try {
+    const userId = req.params.id;
+    const users = readUsersFromFile();
+    const updated = users.filter(u => u.id !== userId);
+    writeUsersToFile(updated);
+    res.status(200).json({ message: 'User deleted', users: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error deleting user' });
+  }
+});
+
 // Configure storage for multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -66,7 +187,7 @@ app.post('/api/upload', upload.fields([
     const imageFile = files.image[0];
     const audioFile = files.audio[0];
 
-    // Paths relative to public folder (to be served by frontend)
+    // Paths relative to public folder (to be served by frontend & express)
     const imagePath = `/songsimg/${imageFile.filename}`;
     const audioPath = `/songs/${audioFile.filename}`;
 
@@ -94,7 +215,7 @@ app.post('/api/upload', upload.fields([
     // Save back to songs.json
     fs.writeFileSync(songsJsonPath, JSON.stringify(songs, null, 2), 'utf-8');
 
-    res.status(200).json({ message: 'Song uploaded successfully', song: newSong });
+    res.status(200).json({ message: 'Song uploaded successfully', song: newSong, songs });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error occurred during upload' });
@@ -157,7 +278,7 @@ app.delete('/api/songs/:id', (req, res) => {
     // Save back
     fs.writeFileSync(songsJsonPath, JSON.stringify(songs, null, 2), 'utf-8');
 
-    res.status(200).json({ message: 'Song deleted successfully', deletedId: id });
+    res.status(200).json({ message: 'Song deleted successfully', deletedId: id, songs });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error occurred while deleting song' });
@@ -167,3 +288,4 @@ app.delete('/api/songs/:id', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+

@@ -1,15 +1,25 @@
-import { useState } from "react";
-import { getAllSongs } from "../utils/songStorage";
+import { useState, useEffect } from "react";
+import { getAllSongs, resolveAllSongsMedia } from "../utils/songStorage";
 import "../css/playlist.css";
 
 export default function CreatePlaylistModal({ isOpen, onClose, onCreatePlaylist }) {
   const [playlistName, setPlaylistName] = useState("");
   const [selectedSongIds, setSelectedSongIds] = useState([]);
   const [modalSearch, setModalSearch] = useState("");
+  const [songsData, setSongsData] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const loadSongs = async () => {
+        const raw = getAllSongs();
+        const resolved = await resolveAllSongsMedia(raw);
+        setSongsData(resolved);
+      };
+      loadSongs();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
-
-  const songsData = getAllSongs();
 
   const filteredSongs = songsData.filter((song) =>
     song.name.toLowerCase().includes(modalSearch.toLowerCase()) ||

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getAllSongs, saveCustomSong, deleteCustomSong } from "../utils/songStorage";
+import { getAllSongs, saveCustomSong, deleteSong, resolveAllSongsMedia } from "../utils/songStorage";
 import { getCloudUsers, deleteUserFromCloud, banUserInCloud, unbanUserInCloud } from "../utils/cloudDb";
 import "../css/admin.css";
 
@@ -15,7 +15,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState(""); // "success" | "error" | "info"
-  const [songs, setSongs] = useState(() => getAllSongs());
+  const [songs, setSongs] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Registered User Data (userdata) state
@@ -125,16 +125,19 @@ export default function Admin() {
       const response = await fetch(`${API_BASE}/api/songs`);
       if (response.ok) {
         const data = await response.json();
-        setSongs(data);
+        const resolved = await resolveAllSongsMedia(data);
+        setSongs(resolved);
+        return;
       }
     } catch (err) {
       console.warn("Backend server not reachable, using local storage songs:", err);
-      setSongs(getAllSongs());
     }
+    const local = getAllSongs();
+    const resolved = await resolveAllSongsMedia(local);
+    setSongs(resolved);
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSongs();
   }, []);
 
@@ -200,7 +203,6 @@ export default function Admin() {
       });
 
       if (response.ok) {
-        const data = await response.json();
         setMessage("Song uploaded successfully to backend!");
         setMessageType("success");
         setSongName("");
@@ -209,11 +211,7 @@ export default function Admin() {
         removeAudio();
         e.target.reset();
 
-        if (data.song) {
-          setSongs((prev) => [...prev, data.song]);
-        } else {
-          fetchSongs();
-        }
+        await fetchSongs();
         return;
       }
       throw new Error("Backend server not responding");
@@ -229,7 +227,8 @@ export default function Admin() {
         };
 
         const updated = await saveCustomSong(newSong, audioFile, imageFile);
-        setSongs(updated);
+        const resolved = await resolveAllSongsMedia(updated);
+        setSongs(resolved);
 
         setMessage("Track published successfully to Spotify library!");
         setMessageType("success");
@@ -253,25 +252,11 @@ export default function Admin() {
       return;
     }
 
-    try {
-      const response = await fetch(`${API_BASE}/api/songs/${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setSongs((prev) => prev.filter((song) => song.id !== id));
-        setMessage("Song deleted successfully!");
-        setMessageType("success");
-        return;
-      }
-      throw new Error("Backend delete failed");
-    } catch {
-      // Fallback for Vercel / Local storage custom songs
-      const updated = deleteCustomSong(id);
-      setSongs(updated);
-      setMessage("Song deleted successfully!");
-      setMessageType("success");
-    }
+    const updated = deleteSong(id);
+    const resolved = await resolveAllSongsMedia(updated);
+    setSongs(resolved);
+    setMessage("Song deleted successfully!");
+    setMessageType("success");
   };
 
   if (!isAuthenticated) {
